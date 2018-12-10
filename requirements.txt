@@ -1,0 +1,6 @@
+Django
+platypus-opt
+numpy
+scipy
+matplotlib
+seaborn

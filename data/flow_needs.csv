@@ -1,0 +1,14 @@
+species,min_flow,max_flow
+"Northern green sturgeon",4000,30000
+"White sturgeon",4000,60000
+"Sacramento pikeminnow",4000,100000
+"Northern tidewater goby",6000,80000
+"Inland threespine stickleback",6000,40000
+"Longfin smelt",8000,150000
+"Pacific lamprey",8000,500000
+"River lamprey",10000,700000
+"Western brook lamprey",10000,600000
+"Southern Oregon Northern California coast coho salmon",20000,300000
+"Northern California coast winter steelhead",20000,100000
+"Northern California coast summer steelhead",20000,100000
+"California Coast fall Chinook salmon",20000,100000
