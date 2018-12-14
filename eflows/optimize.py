@@ -79,8 +79,12 @@ class HUCNetworkProblem(Problem):
 		else:
 			self.decision_variables = decision_variables
 
+		self.iterations = []
+		self.objective_1 = []
+		self.objective_2 = []
+
 		log.info("Number of Decision Variables: {}".format(self.decision_variables))
-		super(HUCNetworkProblem, self).__init__(self.decision_variables, objectives, *args)  # pass any arguments through
+		super(HUCNetworkProblem, self).__init__(self.decision_variables, objectives, nconstrs=1)  # pass any arguments through
 
 		self.directions[:] = Problem.MAXIMIZE  # we want to maximize all of our objectives
 		self.feasible = 1  # 1 = infeasible, 0 = feasible - store the value here because we'll reference it layer in a closure
@@ -98,10 +102,8 @@ class HUCNetworkProblem(Problem):
 
 		self.make_constraint()
 
-		self.types[:] = Real(0, 1000000)
+		self.set_types()
 		self.feasible = 1  # 1 = infeasible, 0 = feasible - store the value here because we'll reference it layer in a closure
-
-		met_needs = {}
 
 		available_species = {}
 		for huc in self.hucs:  # prepopulate all the species so we can skip a condition later - don't use all species because it's possible that some won't be present. Only use the species in all the hucs
@@ -122,7 +124,7 @@ class HUCNetworkProblem(Problem):
 
 			return self.feasible  # this will be set during objective evaluation later
 
-		self.constraints[:self.decision_variables+1] = constraint_function
+		self.constraints[:] = constraint_function
 
 	def set_types(self):
 		"""
@@ -181,7 +183,6 @@ class HUCNetworkProblem(Problem):
 			for species in huc.assemblage.all():  # for every species
 				needs = []
 				for component in models.SpeciesComponent.objects.filter(species=species, component__name="min_flow"):
-					#if component.name == "min_flow":  # just do min flows for now
 					needs.append(component.value*component.threshold)
 
 				needs = numpy.array(needs)
@@ -189,14 +190,18 @@ class HUCNetworkProblem(Problem):
 
 		#all_met = [1 for species in met_needs.keys() if met_needs[species] > 0.99]
 		all_met = sum([met_needs[species] for species in met_needs])
-		min_met_needs = min([met_needs[species] for species in met_needs])
+		min_met_needs = min([met_needs[species]/models.Species.objects.get(common_name=species).presence.count() for species in met_needs])
 
 		self.check_constraints()  # run it now - it'll set a flag that'll get returned by the constraint function
 		log.info("Feasibility: {}".format("Feasible" if self.feasible == 0 else "Infeasible"))
 		solution.objectives[0] = all_met
 		solution.objectives[1] = min_met_needs  # the total number of needs met
-		solution.constraints[:self.decision_variables+1] = 99  # TODO: THIS MIGHT BE WRONG - THIS SET OF CONSTRAINTS MIGHT NOT
+		#solution.constraints[:self.decision_variables+1] = 99  # TODO: THIS MIGHT BE WRONG - THIS SET OF CONSTRAINTS MIGHT NOT
 													# FOLLOW THE 0/1 feasible/infeasible pattern - should confirm
+
+		self.iterations.append(self.eflows_nfe)
+		self.objective_1.append(all_met)
+		self.objective_2.append(min_met_needs)
 
 	def check_constraints(self):
 		"""
@@ -232,7 +237,7 @@ class HUCNetworkProblem(Problem):
 			upstream_available = huc.upstream_total_flow
 			upstream_used = sum([up_huc.flow_allocation for up_huc in huc.upstream.all() if up_huc.flow_allocation is not None])
 
-			# first check - mass balance - did it allocate more water than is available?
+			# first check - mass balance - did it allocate more water than is available somewhere in the system?
 			if (upstream_used + huc.flow_allocation) > (upstream_available + huc.initial_available_water):
 				log.debug("Infeasible HUC: {}".format(huc.huc_id))
 				log.debug("HUC Initial Available: {}".format(huc.initial_available_water))
@@ -241,15 +246,17 @@ class HUCNetworkProblem(Problem):
 				log.debug("Upstream Used: {}".format(upstream_used))
 
 				self.feasible = 1  # infeasible
-				return
+				return 1
 
 			# second check - is the current huc using more than is available *right here*?
-			if huc.flow_allocation > (upstream_available + huc.initial_available_water - upstream_used):
-				self.feasible = 1  # infeasible
-				log.debug("infeasible 2")
-				return
+			# I think this condition, as written, is the same as above - never triggered
+			#if huc.flow_allocation > (upstream_available + huc.initial_available_water - upstream_used):
+			#	self.feasible = 1  # infeasible
+			#	log.debug("infeasible 2")
+			#	return
 
 		# for now, if those two constraints are satisfied for all HUCs, then we're all set - set the contstraint
 		# as valid (0)
 		self.feasible = 0
+		return 0
 
