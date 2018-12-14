@@ -101,10 +101,20 @@ class HUCNetworkProblem(Problem):
 		self.types[:] = Real(0, 1000000)
 		self.feasible = 1  # 1 = infeasible, 0 = feasible - store the value here because we'll reference it layer in a closure
 
+		met_needs = {}
+
+		available_species = {}
+		for huc in self.hucs:  # prepopulate all the species so we can skip a condition later - don't use all species because it's possible that some won't be present. Only use the species in all the hucs
+			for species in huc.assemblage.all():
+				available_species[species.common_name] = 1
+
+		self.available_species = available_species.keys()
+		log.debug("Total Species in Area: {}".format(len(available_species.keys())))
+
 		self.eflows_nfe = 0
 
 	def make_constraint(self):
-		def constraint_function():
+		def constraint_function(value):
 			"""
 				We want this here so it's a closure and the value from the class is in-scope without a "self"
 			:return:
@@ -112,7 +122,7 @@ class HUCNetworkProblem(Problem):
 
 			return self.feasible  # this will be set during objective evaluation later
 
-		self.constraints[:] = constraint_function
+		self.constraints[:self.decision_variables+1] = constraint_function
 
 	def set_types(self):
 		"""
@@ -154,18 +164,17 @@ class HUCNetworkProblem(Problem):
 		:return:
 		"""
 
-		self.eflows_nfe += 1
 		if self.eflows_nfe % 5 == 0:
 			log.info("NFE (inside): {}".format(self.eflows_nfe))
+		self.eflows_nfe += 1
 
 		# attach allocations to HUCs here - doesn't matter what order we do it in,
 		# so long as it's consistent
 		self.set_huc_allocations(allocations=solution.variables)
 
 		met_needs = {}
-
-		for species in models.Species.objects.all():  # prepopulate all the species so we can skip a condition later
-			met_needs[species.common_name] = 0
+		for species in self.available_species:
+			met_needs[species] = 0
 
 		### TODO: REWORK THIS SLIGHTLY FOR BOTH MINIMUM AND MAXIMUM FLOW - DON'T THINK IT'LL WORK AS IS.
 		for huc in self.hucs:
@@ -176,16 +185,17 @@ class HUCNetworkProblem(Problem):
 					needs.append(component.value*component.threshold)
 
 				needs = numpy.array(needs)
-				met_needs[species.common_name] += (needs > huc.flow_allocation).sum() / species.components.count()
+				met_needs[species.common_name] += (needs < huc.flow_allocation).sum()  # / species.components.count()
 
-		all_met = [1 for species in met_needs.keys() if met_needs[species] > 0.99]
+		#all_met = [1 for species in met_needs.keys() if met_needs[species] > 0.99]
+		all_met = sum([met_needs[species] for species in met_needs])
 		min_met_needs = min([met_needs[species] for species in met_needs])
 
 		self.check_constraints()  # run it now - it'll set a flag that'll get returned by the constraint function
 		log.info("Feasibility: {}".format("Feasible" if self.feasible == 0 else "Infeasible"))
-		solution.objectives[0] = sum(all_met)
+		solution.objectives[0] = all_met
 		solution.objectives[1] = min_met_needs  # the total number of needs met
-		solution.constraints[:] = self.feasible  # TODO: THIS MIGHT BE WRONG - THIS SET OF CONSTRAINTS MIGHT NOT
+		solution.constraints[:self.decision_variables+1] = 99  # TODO: THIS MIGHT BE WRONG - THIS SET OF CONSTRAINTS MIGHT NOT
 													# FOLLOW THE 0/1 feasible/infeasible pattern - should confirm
 
 	def check_constraints(self):

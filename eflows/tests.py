@@ -82,24 +82,30 @@ class TestOptimization(TestCase):
 
 		problem = optimize.HUCNetworkProblem()
 
-		self.eflows_opt = NSGAII(problem, generator=optimize.InitialFlowsGenerator(), population_size=10)
+		self.eflows_opt = NSGAII(problem, generator=optimize.InitialFlowsGenerator(), population_size=20)
 
-		step = 10
+		step = 20
 		for i in range(0, 500, step):
 			log.info("NFE: {}".format(i))
 			self.eflows_opt.run(step)
+
+			feasible = sum([1 for solution in self.eflows_opt.result if solution.feasible is True])
+			infeasible = sum([1 for solution in self.eflows_opt.result if solution.feasible is False])
+			log.debug("{} feasible, {} infeasible".format(feasible, infeasible))
 			for solution in self.eflows_opt.result:
+				if not solution.feasible:
+					continue
 				log.info("Objectives: {}".format(solution.objectives))
 			self._plot(i+step)
 
 	def _plot(self, i):
-		x = [s.objectives[0] for s in self.eflows_opt.result]
-		y = [s.objectives[1] for s in self.eflows_opt.result]
+		x = [s.objectives[0] for s in self.eflows_opt.result if s.feasible]
+		y = [s.objectives[1] for s in self.eflows_opt.result if s.feasible]
 		log.debug("X: {}".format(x))
 		log.debug("Y: {}".format(y))
-		plt.scatter(x,y)
-		#plt.xlim([0, 1.1])
-		#plt.ylim([0, 1.1])
+		plt.scatter(x, y)
+		plt.xlim([min(x)-0.1, max(x)+0.1])
+		plt.ylim([min(y)-0.1, max(y)+0.1])
 		plt.xlabel("Total Needs Satisfied")
 		plt.ylabel("Count of minimum number of needs satisfied for a single species")
 		plt.title("NFE: {}".format(i))
