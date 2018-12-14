@@ -102,11 +102,10 @@ def load_species(filepath=os.path.join(settings.BASE_DIR, "data", "species_data.
 				fish.pisces_fid = record["FID"]
 				fish.save()
 
-			#try:
 			huc = models.HUC.objects.get(huc_id=record["HUC_12"])
 			huc.assemblage.add(fish)
 			huc.save()
-			#except models.HUC.DoesNotExist:
+
 
 def load_climate(filepath=os.path.join(settings.BASE_DIR, "data", "bcm_march86_eel.csv")):
 	"""

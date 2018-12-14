@@ -1,9 +1,11 @@
-import numpy
+import logging
 
-from platypus import Problem
+import numpy
+from platypus import Problem, Real
 
 from eflows import models
 
+log = logging.getLogger("eflows.optimization")
 
 class SparseList(list):
 	"""
@@ -24,32 +26,6 @@ class SparseList(list):
 			return None
 
 
-def check_constraints():
-	"""
-		Just pseudocode now. This function should take as a parameter a watershed network. That network should be created
-		and just return the indexes of the item and its upstream hucs in the allocation list. Then it can just subset
-		and sum the list to get the total allocation, and compare that to the initial total allocation available for that
-		same set of HUCs (same process - subset and sum inital allocations).
-			Constraints:
-				1) Current HUC can't use more than total water upstream.
-				2) Current HUC + all upstream HUCs can't use more than total water upstream
-
-			Other approach would be to zero out allocations, then go through and actually calculate the water available
-			by summing the upstream allocations minus the used water, then just check each HUC against its allocation.
-			The above is maybe simpler (and faster?), but maybe more prone to a logic error and less explicit. Must be
-			documented regardless. The second approach would scale better to future constraints, where we loop through,
-			calculate some parameters on each HUC, and then check the values against each HUC's constraints. We'll need
-			some other logic changes before we do that, but they shouldn't be too bad.
-
-		indexing code can happen before this and follow prior patterns.
-
-		Also, initial available values should just come from zonal stats on a BCM raster. Low testing could be a summer
-		flow and high testing a winter flow
-	:return:
-	"""
-	pass
-
-
 class HUCNetworkProblem(Problem):
 	"""
 		We need to subclass this because:
@@ -64,46 +40,160 @@ class HUCNetworkProblem(Problem):
 				that flow value in each HUC is less than or equal to the sum of that HUC's initial flow
 				plus everything upstream. T
 	"""
-	def __init__(self, *args):
-		super(HUCNetworkProblem, self).__init__(*args)  # pass any arguments through
+	def __init__(self, decision_variables=None, objectives=2, *args):
+		"""
+
+		:param decision_variables: when this is set to None, it will use the number of HUCs as the number of decision
+			variables
+		:param objectives:  default is two (total needs met, and min by species)
+		:param args:
+		"""
+
 		self.hucs = models.HUC.objects.all()
+		if not decision_variables:
+			self.decision_variables = models.HUC.objects.count()
+		else:
+			self.decision_variables = decision_variables
 
-		self.feasible = 1 # 1 = infeasible, 0 = feasible - store the value here because we'll reference it layer in a closure
+		log.info("Number of Decision Variables: {}".format(self.decision_variables))
+		super(HUCNetworkProblem, self).__init__(self.decision_variables, objectives, *args)  # pass any arguments through
 
-	def objective(self, allocations):
+		self.directions[:] = Problem.MAXIMIZE  # we want to maximize all of our objectives
+		self.feasible = 1  # 1 = infeasible, 0 = feasible - store the value here because we'll reference it layer in a closure
 
-		# attach allocations to HUCs here - doesn't matter what order we do it in,
-		# so long as it's consistent
+		self.eflows_nfe = 0
 
+		self.setUp()
+
+	def setUp(self,):
+		"""
+			On top of init, let's make something that actually does the setup when we're ready to.
+			This would also be used when resetting a run or something
+		:return:
+		"""
+
+		self.make_constraint()
+		self.types[:] = Real(0, 1000000)
+		self.feasible = 1  # 1 = infeasible, 0 = feasible - store the value here because we'll reference it layer in a closure
+
+		self.eflows_nfe = 0
+
+	def make_constraint(self):
 		def constraint_function():
 			"""
 				We want this here so it's a closure and the value from the class is in-scope without a "self"
-
-				This might need to be moved somewhere else and just be generated before th problem is run
 			:return:
 			"""
 
 			return self.feasible  # this will be set during objective evaluation later
 
-		met_needs = {}
+		self.constraints[:] = constraint_function
 
-		for huc in self.hucs:
-			for species in huc.assemblage:
-				needs = []
-				for component in species.components:
-					needs.append(component.value*component.threshold)
-				needs = numpy.array(needs)
-				met_needs[species] = (needs < huc.flow_allocation).sum() / species.components.count()
+	def set_huc_allocations(self, allocations):
 
-		all_met = [1 for species in met_needs.keys() if met_needs[species] > 0.99]
-		return sum(all_met)
+		allocation_index = 0
+		hucs = self.hucs
+		for huc in hucs:
+			try:
+				huc.flow_allocation = allocations[allocation_index]
+			except IndexError:
+				log.error("Size mismatch between number of HUCs and number of allocations - either"
+						  "too many HUCs are loaded in the database, or there are too few decision"
+						  "variables receiving allocations")
+				raise
+			# huc.save()  # let's see if we can skip this - lots of overhead in it.from
 
-	def constraint(self):
+	def evaluate(self, solution):
 		"""
-			Need to run the constraint here once because when we check constraints, we won't be able
-			to tell which item it's for, and it'll be run many times. We'll evaluate the network here, then set
-			the constraint function to be a lambda returning 0 (feasible) or 1 (infeasible)
+			Alternatively, could build this so that it reports the number of hucs, per species and we construct our
+			problem to be ready for that - we might not want that for actual use though, because that would lead to
+			way too many resulting variables on the pareto front, etc, and would prevent a true tradeoff with economics.
+			Options for this initial project :
+				1) Average across the entire system and min needs met (min of the # hucs per species)
+				 - that way we can see the overall benefit, but also make sure it's not zeroing out species to get there
+		:param allocations:
 		:return:
 		"""
 
+		self.eflows_nfe += 1
+		if self.eflows_nfe % 100 == 0:
+			log.info("NFE: {}".format(self.eflows_nfe))
+
+		# attach allocations to HUCs here - doesn't matter what order we do it in,
+		# so long as it's consistent
+		self.set_huc_allocations(allocations=solution.variables)
+
+		met_needs = {}
+
+		for species in models.Species.objects.all():  # prepopulate all the species so we can skip a condition later
+			met_needs[species.common_name] = 0
+
+		### TODO: REWORK THIS SLIGHTLY FOR BOTH MINIMUM AND MAXIMUM FLOW - DON'T THINK IT'LL WORK AS IS.
+		for huc in self.hucs:
+			for species in huc.assemblage.all():  # for every species
+				needs = []
+				for component in models.SpeciesComponent.objects.filter(species=species, component__name="min_flow"):
+					#if component.name == "min_flow":  # just do min flows for now
+					needs.append(component.value*component.threshold)
+
+				needs = numpy.array(needs)
+				met_needs[species.common_name] += (needs > huc.flow_allocation).sum() / species.components.count()
+
+		all_met = [1 for species in met_needs.keys() if met_needs[species] > 0.99]
+		min_met_needs = min([met_needs[species] for species in met_needs])
+
+		self.check_constraints()  # run it now - it'll set a flag that'll get returned by the constraint function
+
+		solution.objectives[0] = sum(all_met)
+		solution.objectives[1] = min_met_needs  # the total number of needs met
+		solution.constraints[:] = self.feasible  # TODO: THIS MIGHT BE WRONG - THIS SET OF CONSTRAINTS MIGHT NOT
+													# FOLLOW THE 0/1 feasible/infeasible pattern - should confirm
+
+	def check_constraints(self):
+		"""
+			Just pseudocode now. This function should take as a parameter a watershed network. That network should be created
+			and just return the indexes of the item and its upstream hucs in the allocation list. Then it can just subset
+			and sum the list to get the total allocation, and compare that to the initial total allocation available for that
+			same set of HUCs (same process - subset and sum inital allocations).
+
+				Constraints:
+					1) Current HUC can't use more than unused total water upstream + current HUC water.
+					2) Current HUC + all upstream HUCs can't use more than total water upstream + current HUC water
+
+				Other approach would be to zero out allocations, then go through and actually calculate the water available
+				by summing the upstream allocations minus the used water, then just check each HUC against its allocation.
+				The above is maybe simpler (and faster?), but maybe more prone to a logic error and less explicit. Must be
+				documented regardless. The second approach would scale better to future constraints, where we loop through,
+				calculate some parameters on each HUC, and then check the values against each HUC's constraints. We'll need
+				some other logic changes before we do that, but they shouldn't be too bad.
+
+			indexing code can happen before this and follow prior patterns.
+
+			Also, initial available values should just come from zonal stats on a BCM raster. Low testing could be a summer
+			flow and high testing a winter flow
+
+			Need to run the constraint here once because when we check constraints, we won't be able
+			to tell which item it's for, and it'll be run many times. We'll evaluate the network here, then set
+			the constraint function to be a closure with access to the instance's constraint validity
+			variable.
+		:return:
+		"""
+
+		for huc in self.hucs:
+			upstream_available = sum([up_huc.initial_available_water for up_huc in huc.upstream.all() if up_huc.initial_available_water is not None])
+			upstream_used = sum([up_huc.flow_allocation for up_huc in huc.upstream.all() if up_huc.flow_allocation is not None])
+
+			# first check - mass balance - did it allocate more water than is available?
+			if (upstream_used + huc.flow_allocation) > (upstream_available + huc.initial_available_water):
+				self.feasible = 1  # infeasible
+				return
+
+			# second check - is the current huc using more than is available *right here*?
+			if huc.flow_allocation > (upstream_available + huc.initial_available_water - upstream_used):
+				self.feasible = 1  # infeasible
+				return
+
+		# for now, if those two constraints are satisfied for all HUCs, then we're all set - set the contstraint
+		# as valid (0)
+		self.feasible = 0
 

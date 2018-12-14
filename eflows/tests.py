@@ -1,9 +1,13 @@
 import logging
 
+import matplotlib.pyplot as plt
+from platypus import NSGAII
+
 from django.test import TestCase
 
 from . import models
 from . import support
+from . import optimize
 
 log = logging.getLogger("eflows.optimization.tests")
 
@@ -67,4 +71,27 @@ class TestHUCNetwork(TestCase):
 		for huc in models.HUC.objects.all():
 			self.assertIsNotNone(huc.initial_available_water)
 			self.assertGreaterEqual(huc.initial_available_water, 0)
+
+
+class TestOptimization(TestCase):
+	def setUp(self):
+		support.reset()  # loads everything into the DB
+
+	def test_optimize(self):
+		self.eflows_opt = NSGAII(optimize.HUCNetworkProblem())
+		step = 3
+		for i in range(0, 15, step):
+			log.info(i)
+			self.eflows_opt.run(step)
+			self._plot(i)
+
+	def _plot(self, i):
+		plt.scatter([s.objectives[0] for s in self.eflows_opt.result],
+					[s.objectives[1] for s in self.eflows_opt.result])
+		#plt.xlim([0, 1.1])
+		#plt.ylim([0, 1.1])
+		plt.xlabel("Total Needs Satisfied")
+		plt.ylabel("Count of minimum number of needs satisfied for a single species")
+		plt.title("NFE: {}".format(i))
+		plt.show()
 
