@@ -1,11 +1,35 @@
 import logging
+import random
 
 import numpy
 from platypus import Problem, Real
+from platypus.operators import Generator, Solution
 
 from eflows import models
 
 log = logging.getLogger("eflows.optimization")
+
+random.seed = 20181214
+
+
+class InitialFlowsGenerator(Generator):
+	"""
+		Generates initial flows based on the actual allocated flows
+	"""
+	def __init__(self):
+		super(InitialFlowsGenerator, self).__init__()
+
+	def generate(self, problem):
+		solution = Solution(problem)
+
+		initial_values = [huc.initial_available_water for huc in problem.hucs]
+		values = []
+		for value in initial_values:
+			values.append(value * ((random.random()*0.2)+0.8))  # multiply *0.2 so that the scaling power is minimal (0<value<0.2), then add 0.8 so that it could shrink it by up to 20% - should mean all starting solutions are feasible
+
+		solution.variables = values
+		return solution
+
 
 class SparseList(list):
 	"""
@@ -73,6 +97,7 @@ class HUCNetworkProblem(Problem):
 		"""
 
 		self.make_constraint()
+
 		self.types[:] = Real(0, 1000000)
 		self.feasible = 1  # 1 = infeasible, 0 = feasible - store the value here because we'll reference it layer in a closure
 
@@ -89,6 +114,18 @@ class HUCNetworkProblem(Problem):
 
 		self.constraints[:] = constraint_function
 
+	def set_types(self):
+		"""
+			Sets the type of each decision variable and makes it the max, should be in the same order that we
+			assign flows out later, so the max values should allign with the allocations that come in.
+		:return:
+		"""
+		allocation_index = 0
+		hucs = self.hucs
+		for huc in hucs:
+			self.types[allocation_index] = Real(0, huc.max_possible_flow)
+			allocation_index += 1
+
 	def set_huc_allocations(self, allocations):
 
 		allocation_index = 0
@@ -101,6 +138,8 @@ class HUCNetworkProblem(Problem):
 						  "too many HUCs are loaded in the database, or there are too few decision"
 						  "variables receiving allocations")
 				raise
+
+			allocation_index += 1
 			# huc.save()  # let's see if we can skip this - lots of overhead in it.from
 
 	def evaluate(self, solution):
@@ -116,8 +155,8 @@ class HUCNetworkProblem(Problem):
 		"""
 
 		self.eflows_nfe += 1
-		if self.eflows_nfe % 100 == 0:
-			log.info("NFE: {}".format(self.eflows_nfe))
+		if self.eflows_nfe % 5 == 0:
+			log.info("NFE (inside): {}".format(self.eflows_nfe))
 
 		# attach allocations to HUCs here - doesn't matter what order we do it in,
 		# so long as it's consistent
@@ -143,7 +182,7 @@ class HUCNetworkProblem(Problem):
 		min_met_needs = min([met_needs[species] for species in met_needs])
 
 		self.check_constraints()  # run it now - it'll set a flag that'll get returned by the constraint function
-
+		log.info("Feasibility: {}".format("Feasible" if self.feasible == 0 else "Infeasible"))
 		solution.objectives[0] = sum(all_met)
 		solution.objectives[1] = min_met_needs  # the total number of needs met
 		solution.constraints[:] = self.feasible  # TODO: THIS MIGHT BE WRONG - THIS SET OF CONSTRAINTS MIGHT NOT
@@ -180,17 +219,24 @@ class HUCNetworkProblem(Problem):
 		"""
 
 		for huc in self.hucs:
-			upstream_available = sum([up_huc.initial_available_water for up_huc in huc.upstream.all() if up_huc.initial_available_water is not None])
+			upstream_available = huc.upstream_total_flow
 			upstream_used = sum([up_huc.flow_allocation for up_huc in huc.upstream.all() if up_huc.flow_allocation is not None])
 
 			# first check - mass balance - did it allocate more water than is available?
 			if (upstream_used + huc.flow_allocation) > (upstream_available + huc.initial_available_water):
+				log.debug("Infeasible HUC: {}".format(huc.huc_id))
+				log.debug("HUC Initial Available: {}".format(huc.initial_available_water))
+				log.debug("HUC Allocation: {}".format(huc.flow_allocation))
+				log.debug("Upstream Available: {}".format(upstream_available))
+				log.debug("Upstream Used: {}".format(upstream_used))
+
 				self.feasible = 1  # infeasible
 				return
 
 			# second check - is the current huc using more than is available *right here*?
 			if huc.flow_allocation > (upstream_available + huc.initial_available_water - upstream_used):
 				self.feasible = 1  # infeasible
+				log.debug("infeasible 2")
 				return
 
 		# for now, if those two constraints are satisfied for all HUCs, then we're all set - set the contstraint

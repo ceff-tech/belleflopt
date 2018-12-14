@@ -2,6 +2,7 @@ import logging
 
 import matplotlib.pyplot as plt
 from platypus import NSGAII
+from platypus.evaluator import MultiprocessingEvaluator
 
 from django.test import TestCase
 
@@ -78,16 +79,25 @@ class TestOptimization(TestCase):
 		support.reset()  # loads everything into the DB
 
 	def test_optimize(self):
-		self.eflows_opt = NSGAII(optimize.HUCNetworkProblem())
-		step = 3
-		for i in range(0, 15, step):
-			log.info(i)
+
+		problem = optimize.HUCNetworkProblem()
+
+		self.eflows_opt = NSGAII(problem, generator=optimize.InitialFlowsGenerator(), population_size=10)
+
+		step = 10
+		for i in range(0, 500, step):
+			log.info("NFE: {}".format(i))
 			self.eflows_opt.run(step)
-			self._plot(i)
+			for solution in self.eflows_opt.result:
+				log.info("Objectives: {}".format(solution.objectives))
+			self._plot(i+step)
 
 	def _plot(self, i):
-		plt.scatter([s.objectives[0] for s in self.eflows_opt.result],
-					[s.objectives[1] for s in self.eflows_opt.result])
+		x = [s.objectives[0] for s in self.eflows_opt.result]
+		y = [s.objectives[1] for s in self.eflows_opt.result]
+		log.debug("X: {}".format(x))
+		log.debug("Y: {}".format(y))
+		plt.scatter(x,y)
 		#plt.xlim([0, 1.1])
 		#plt.ylim([0, 1.1])
 		plt.xlabel("Total Needs Satisfied")

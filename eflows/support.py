@@ -136,9 +136,7 @@ def load_flows(filepath=os.path.join(settings.BASE_DIR, "data", "flow_needs.csv"
 	with open(filepath, 'r') as component_data:
 		records = csv.DictReader(component_data)
 		for record in records:
-			log.debug(record.keys())
 			species = models.Species.objects.get(common_name=record["species"])
-			log.debug(species.id)
 			min_component = models.SpeciesComponent(component=min_flow, species=species, value=record["min_flow"])
 			max_component = models.SpeciesComponent(component=max_flow, species=species, value=record["max_flow"])
 			min_flow.save()

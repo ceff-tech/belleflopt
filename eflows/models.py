@@ -22,6 +22,22 @@ class HUC(models.Model):
 	initial_available_water = models.FloatField(null=True)  # how much water do we start with - from climate data
 	flow_allocation = models.FloatField(null=True)  # how much water does it try to use in this HUC?
 
+	@property
+	def upstream_total_flow(self):
+		"""
+			The inflow to this HUC if all upstream hucs didn't use any water
+		:return:
+		"""
+		return sum([up_huc.initial_available_water for up_huc in self.upstream.all() if
+			 			up_huc.initial_available_water is not None])
+
+	@property
+	def max_possible_flow(self):
+		"""
+			The outflow from this HUC if all upstream hucs didn't use any water
+		:return:
+		"""
+		return self.upstream_total_flow + self.initial_available_water
 
 class FlowComponent(models.Model):
 	name = models.CharField(null=False, max_length=255)
