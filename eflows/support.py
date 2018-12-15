@@ -1,9 +1,10 @@
 import csv
 import os
 import logging
+import random
 
 from matplotlib import pyplot as plt
-from platypus import NSGAII
+from platypus import NSGAII, MOEAD, GDE3, NSGAIII
 
 from eflows_optimization import settings
 from eflows import models
@@ -149,10 +150,12 @@ def load_flows(filepath=os.path.join(settings.BASE_DIR, "data", "flow_needs.csv"
 			min_component.save()
 			max_component.save()
 
-def run_optimize(NFE=1000, popsize=25):
+def run_optimize(algorithm=NSGAII, NFE=1000, popsize=25, seed=20181214):
+
+	random.seed = seed
 
 	problem = optimize.HUCNetworkProblem()
-	eflows_opt = NSGAII(problem, generator=optimize.InitialFlowsGenerator(), population_size=popsize)
+	eflows_opt = algorithm(problem, generator=optimize.InitialFlowsGenerator(), population_size=popsize)
 
 	#step = 20
 	#for i in range(0, 100, step):
@@ -170,13 +173,13 @@ def run_optimize(NFE=1000, popsize=25):
 	log.debug("{} feasible, {} infeasible".format(feasible, infeasible))
 	_plot(eflows_opt, "Pareto Front: {} NFE, PopSize: {}".format(NFE, popsize))
 
-	_plot_convergence(problem.iterations, problem.objective_1, "Total Needs Satisfied v NFE")
-	_plot_convergence(problem.iterations, problem.objective_2, "Min percent of needs satisfied by species v NFE")
+	_plot_convergence(problem.iterations, problem.objective_1, "Total Needs Satisfied v NFE. Alg: {}, PS: {}, Seed: {}".format(str(algorithm), str(popsize), str(seed)))
+	_plot_convergence(problem.iterations, problem.objective_2, "Min percent of needs satisfied by species v NFEAlg: {}, PS: {}, Seed: {}".format(str(algorithm), str(popsize), str(seed)))
 
 	for huc in problem.hucs:
 		huc.save()  # save the results out
 
-	output_table(problem.hucs)
+	output_table(problem.hucs,output_path=os.path.join(settings.BASE_DIR, "data", "results_{}_seed{}_nfe{}_popsize{}.csv".format(str(algorithm),str(seed),str(NFE),str(popsize))))
 
 def _plot(optimizer, title):
 	x = [s.objectives[0] for s in optimizer.result if s.feasible]
@@ -215,7 +218,7 @@ def output_table(hucs, output_path=os.path.join(settings.BASE_DIR, "data", "resu
 		unmet_needs = []
 		for species in assemblage:
 			species_min_need = models.SpeciesComponent.objects.get(species=species, component__name="min_flow").value
-			if species_min_need < huc.flow_allocation:
+			if species_min_need > huc.flow_allocation:
 				unmet_needs.append("{} ({}%)".format(species.common_name, round((species_min_need/huc.flow_allocation)*100)))
 		output["unmet_needs"] = ", ".join(unmet_needs)
 		output["unmet_count"] = len(unmet_needs)
@@ -233,3 +236,17 @@ def output_table(hucs, output_path=os.path.join(settings.BASE_DIR, "data", "resu
 		writer.writerows(outputs)
 
 
+def run_optimize_many():
+	"""
+		Runs through many algorithms and many seeds - outputs results for all
+	:return:
+	"""
+
+	algorithms = [NSGAII, NSGAIII, MOEAD, GDE3]
+	nfe = 800
+	popsize = [25, 50, 100]
+	seeds = [20181214, 236598, 12958]
+	for algorithm in algorithms:
+		for pop in popsize:
+			for seed in seeds:
+				run_optimize(algorithm, NFE=nfe, popsize=pop, seed=seed)
