@@ -233,6 +233,9 @@ class HUCNetworkProblem(Problem):
 		:return:
 		"""
 
+		## TODO: WHY ARE WE TREATING ENVIRONMENTAL FLOWS AS CONSUMPTIVE RELATIVE TO OTHER EFLOWS.
+		## TODO: THEY SHOULD BE CONSUMPTIVE RELATIVE TO ECONOMIC USES, BUT NOT TO OTHER EFLOWS.
+
 		for huc in self.hucs:
 			upstream_available = huc.upstream_total_flow
 			upstream_used = sum([up_huc.flow_allocation for up_huc in huc.upstream.all() if up_huc.flow_allocation is not None])

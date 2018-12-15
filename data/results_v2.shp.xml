@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata xml:lang="en"><Esri><CreaDate>20181214</CreaDate><CreaTime>21552400</CreaTime><ArcGISFormat>1.0</ArcGISFormat><ArcGISstyle>FGDC CSDGM Metadata</ArcGISstyle><SyncOnce>TRUE</SyncOnce><DataProperties><lineage><Process ToolSource="c:\program files (x86)\arcgis\desktop10.5\ArcToolbox\Toolboxes\Data Management Tools.tbx\CalculateField" Date="20181214" Time="215524">CalculateField results_v2 met_needs "!richness!- !unmet_coun!" PYTHON_9.3 #</Process></lineage></DataProperties></Esri></metadata>
