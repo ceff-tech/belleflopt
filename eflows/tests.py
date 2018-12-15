@@ -1,8 +1,6 @@
 import logging
 
 import matplotlib.pyplot as plt
-from platypus import NSGAII
-from platypus.evaluator import MultiprocessingEvaluator
 
 from django.test import TestCase
 
@@ -79,52 +77,5 @@ class TestOptimization(TestCase):
 		support.reset()  # loads everything into the DB
 
 	def test_optimize(self):
-
-		problem = optimize.HUCNetworkProblem()
-		NFE = 5
-		popsize = 5
-		self.eflows_opt = NSGAII(problem, generator=optimize.InitialFlowsGenerator(), population_size=popsize)
-
-		#step = 20
-		#for i in range(0, 100, step):
-		#	log.info("NFE: {}".format(i))
-		#	self.eflows_opt.run(step)
-
-		#	feasible = sum([1 for solution in self.eflows_opt.result if solution.feasible is True])
-		#	infeasible = sum([1 for solution in self.eflows_opt.result if solution.feasible is False])
-		#	log.debug("{} feasible, {} infeasible".format(feasible, infeasible))
-
-		#	self._plot(i+step)
-		self.eflows_opt.run(NFE)
-		feasible = sum([1 for solution in self.eflows_opt.result if solution.feasible is True])
-		infeasible = sum([1 for solution in self.eflows_opt.result if solution.feasible is False])
-		log.debug("{} feasible, {} infeasible".format(feasible, infeasible))
-		self._plot("Pareto Front: {} NFE, PopSize: {}".format(NFE, popsize))
-
-		self._plot_convergence(problem.iterations, problem.objective_1, "Total Needs Satisfied v NFE")
-		self._plot_convergence(problem.iterations, problem.objective_2, "Min percent of needs satisfied by species v NFE")
-
-	def _plot(self, title):
-		x = [s.objectives[0] for s in self.eflows_opt.result if s.feasible]
-		y = [s.objectives[1] for s in self.eflows_opt.result if s.feasible]
-		log.debug("X: {}".format(x))
-		log.debug("Y: {}".format(y))
-		plt.scatter(x, y)
-		plt.xlim([min(x)-0.1, max(x)+0.1])
-		plt.ylim([min(y)-0.1, max(y)+0.1])
-		plt.xlabel("Total Needs Satisfied")
-		plt.ylabel("Minimum percent of HUC needs satisfied")
-		plt.title(title)
-		plt.show()
-
-	def _plot_convergence(self, i, objective, title):
-		x = i
-		y = objective
-		plt.plot(x, y, color='steelblue', linewidth=1)
-		#plt.xlim([min(x)-0.1, max(x)+0.1])
-		#plt.ylim([min(y)-0.1, max(y)+0.1])
-		plt.xlabel("NFE")
-		plt.ylabel("Objective Value")
-		plt.title(title)
-		plt.show()
+		support.run_optimize(NFE=500, popsize=25)
 

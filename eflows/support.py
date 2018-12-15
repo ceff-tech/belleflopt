@@ -2,8 +2,12 @@ import csv
 import os
 import logging
 
+from matplotlib import pyplot as plt
+from platypus import NSGAII
+
 from eflows_optimization import settings
 from eflows import models
+from eflows import optimize
 
 log = logging.getLogger("eflows.optimization.support")
 
@@ -144,4 +148,88 @@ def load_flows(filepath=os.path.join(settings.BASE_DIR, "data", "flow_needs.csv"
 			species.save()
 			min_component.save()
 			max_component.save()
+
+def run_optimize(NFE=1000, popsize=25):
+
+	problem = optimize.HUCNetworkProblem()
+	eflows_opt = NSGAII(problem, generator=optimize.InitialFlowsGenerator(), population_size=popsize)
+
+	#step = 20
+	#for i in range(0, 100, step):
+	#	log.info("NFE: {}".format(i))
+	#	self.eflows_opt.run(step)
+
+	#	feasible = sum([1 for solution in self.eflows_opt.result if solution.feasible is True])
+	#	infeasible = sum([1 for solution in self.eflows_opt.result if solution.feasible is False])
+	#	log.debug("{} feasible, {} infeasible".format(feasible, infeasible))
+
+	#	self._plot(i+step)
+	eflows_opt.run(NFE)
+	feasible = sum([1 for solution in eflows_opt.result if solution.feasible is True])
+	infeasible = sum([1 for solution in eflows_opt.result if solution.feasible is False])
+	log.debug("{} feasible, {} infeasible".format(feasible, infeasible))
+	_plot(eflows_opt, "Pareto Front: {} NFE, PopSize: {}".format(NFE, popsize))
+
+	_plot_convergence(problem.iterations, problem.objective_1, "Total Needs Satisfied v NFE")
+	_plot_convergence(problem.iterations, problem.objective_2, "Min percent of needs satisfied by species v NFE")
+
+	for huc in problem.hucs:
+		huc.save()  # save the results out
+
+	output_table(problem.hucs)
+
+def _plot(optimizer, title):
+	x = [s.objectives[0] for s in optimizer.result if s.feasible]
+	y = [s.objectives[1] for s in optimizer.result if s.feasible]
+	log.debug("X: {}".format(x))
+	log.debug("Y: {}".format(y))
+	plt.scatter(x, y)
+	plt.xlim([min(x)-0.1, max(x)+0.1])
+	plt.ylim([min(y)-0.1, max(y)+0.1])
+	plt.xlabel("Total Needs Satisfied")
+	plt.ylabel("Minimum percent of HUC needs satisfied")
+	plt.title(title)
+	plt.show()
+
+def _plot_convergence(i, objective, title):
+	x = i
+	y = objective
+	plt.plot(x, y, color='steelblue', linewidth=1)
+	#plt.xlim([min(x)-0.1, max(x)+0.1])
+	#plt.ylim([min(y)-0.1, max(y)+0.1])
+	plt.xlabel("NFE")
+	plt.ylabel("Objective Value")
+	plt.title(title)
+	plt.show()
+
+
+def output_table(hucs, output_path=os.path.join(settings.BASE_DIR, "data", "results.csv")):
+	outputs = []
+	for huc in hucs:
+		output = {}
+		output["HUC_12"] = huc.huc_id
+		output["initial_available"] = huc.initial_available_water
+		output["allocation"] = huc.flow_allocation
+		assemblage = huc.assemblage.all()
+		output["assemblage"] = ", ".join([species.common_name for species in assemblage])
+		unmet_needs = []
+		for species in assemblage:
+			species_min_need = models.SpeciesComponent.objects.get(species=species, component__name="min_flow").value
+			if species_min_need < huc.flow_allocation:
+				unmet_needs.append("{} ({}%)".format(species.common_name, round((species_min_need/huc.flow_allocation)*100)))
+		output["unmet_needs"] = ", ".join(unmet_needs)
+		output["unmet_count"] = len(unmet_needs)
+		output["richness"] = huc.assemblage.count()
+		output["unmet_proportion"] = output["unmet_count"] / output["richness"]
+
+		outputs.append(output)
+
+	fields = ["HUC_12", "initial_available", "allocation", "assemblage", "unmet_needs",
+			  	"unmet_count", "richness", "unmet_proportion" ]
+
+	with open(output_path, 'w', newline="\n") as output_file:
+		writer = csv.DictWriter(output_file, fieldnames=fields)
+		writer.writeheader()
+		writer.writerows(outputs)
+
 

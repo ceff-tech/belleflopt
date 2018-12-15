@@ -39,6 +39,7 @@ class HUC(models.Model):
 		"""
 		return self.upstream_total_flow + self.initial_available_water
 
+
 class FlowComponent(models.Model):
 	name = models.CharField(null=False, max_length=255)
 	# month
