@@ -4,7 +4,7 @@ import logging
 import random
 
 from matplotlib import pyplot as plt
-from platypus import NSGAII, MOEAD, GDE3, NSGAIII
+from platypus import NSGAII, SMPSO, GDE3, SPEA2
 
 from eflows_optimization import settings
 from eflows import models
@@ -198,8 +198,8 @@ def _plot(optimizer, title, filename=None, show=False):
 	log.debug("X: {}".format(x))
 	log.debug("Y: {}".format(y))
 	plt.scatter(x, y)
-	plt.xlim([min(x)-0.1, max(x)+0.1])
-	plt.ylim([min(y)-0.1, max(y)+0.1])
+	#plt.xlim([min(x)-0.1, max(x)+0.1])
+	#plt.ylim([min(y)-0.1, max(y)+0.1])
 	plt.xlabel("Total Needs Satisfied")
 	plt.ylabel("Minimum percent of HUC needs satisfied")
 	plt.title(title)
@@ -241,7 +241,11 @@ def output_table(hucs, output_path=os.path.join(settings.BASE_DIR, "data", "resu
 		for species in assemblage:
 			species_min_need = models.SpeciesComponent.objects.get(species=species, component__name="min_flow").value
 			if species_min_need > huc.flow_allocation:
-				unmet_needs.append("{} ({}%)".format(species.common_name, round((species_min_need/huc.flow_allocation)*100)))
+				if huc.flow_allocation == 0:
+					pct = "No Flow"
+				else:
+					pct = round((species_min_need / huc.flow_allocation) * 100)
+				unmet_needs.append("{} ({}%)".format(species.common_name, pct))
 		output["unmet_needs"] = ", ".join(unmet_needs)
 		output["unmet_count"] = len(unmet_needs)
 		output["richness"] = huc.assemblage.count()
@@ -264,7 +268,7 @@ def run_optimize_many():
 	:return:
 	"""
 
-	algorithms = [NSGAII, NSGAIII, MOEAD, GDE3]
+	algorithms = [NSGAII, SMPSO, SPEA2, GDE3]
 	nfe = 800
 	popsize = [25, 50, 100]
 	seeds = [20181214, 236598, 12958]
