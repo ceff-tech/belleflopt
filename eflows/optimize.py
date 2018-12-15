@@ -193,7 +193,7 @@ class HUCNetworkProblem(Problem):
 		min_met_needs = min([met_needs[species]/models.Species.objects.get(common_name=species).presence.count() for species in met_needs])
 
 		self.check_constraints()  # run it now - it'll set a flag that'll get returned by the constraint function
-		log.info("Feasibility: {}".format("Feasible" if self.feasible == 0 else "Infeasible"))
+		log.debug("Feasibility: {}".format("Feasible" if self.feasible == 0 else "Infeasible"))
 		solution.objectives[0] = all_met
 		solution.objectives[1] = min_met_needs  # the total number of needs met
 		#solution.constraints[:self.decision_variables+1] = 99  # TODO: THIS MIGHT BE WRONG - THIS SET OF CONSTRAINTS MIGHT NOT
