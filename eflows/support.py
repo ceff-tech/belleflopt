@@ -150,7 +150,19 @@ def load_flows(filepath=os.path.join(settings.BASE_DIR, "data", "flow_needs.csv"
 			min_component.save()
 			max_component.save()
 
+
 def run_optimize(algorithm=NSGAII, NFE=1000, popsize=25, seed=20181214, show_plots=False):
+	"""
+		Runs a single optimization run, defaulting to 1000 NFE using NSGAII. Won't output plots to screen
+		by default. Outputs tables and figures to the data/results folder.
+	:param algorithm: a platypus Algorithm object (not the instance, but the actual item imported from platypus)
+						defaults to NSGAII.
+	:param NFE: How many times should the objective function be run?
+	:param popsize: The size of hte population to use
+	:param seed: Random seed to start
+	:param show_plots: Whether plots should be output to the screen
+	:return: None
+	"""
 
 	random.seed = seed
 
