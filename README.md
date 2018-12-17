@@ -55,13 +55,17 @@ access now. Unittests are available for data loading functions, but
 not for other functionality.
 
 If you want to do some testing, you can use `support.run_optimize_many()` (takes no
- arguments - tweak the code if you want it to be different) or use Platypus' Experimenter class.
- Note that currently, due to the way the model is constructed, you can't use parallel
- expirementers - the database will lock and prevent multiple accesses.
- 
- ## Performance
- This model is slow right now, sorry. It's built into Django, which makes data management
- and network traversal nice, but also slows everything down and prevents parallelization
- while using a SQLite backend. One function evaluation takes about a second or more on
- modest hardware, so plan accordingly. Most runs converged in less than 4000 NFE, but
- it's possible you'd want to go further for testing.
+arguments - tweak the code if you want it to be different) or use Platypus' Experimenter class.
+Note that currently, due to the way the model is constructed, you can't use parallel
+expirementers - the database will lock and prevent multiple accesses.
+
+## Results
+Sample results are included below:
+![Sample Results](maps/maps_layout.png)
+
+## Performance
+This model is slow right now, sorry. It's built into Django, which makes data management
+and network traversal nice, but also slows everything down and prevents parallelization
+while using a SQLite backend. One function evaluation takes about a second or more on
+modest hardware, so plan accordingly. Most runs converged in less than 4000 NFE, but
+it's possible you'd want to go further for testing.
