@@ -46,6 +46,14 @@ That function's signature looks like the following:
 	"""
 ```
 
+If you want to take a look at the optimization innards, they're in
+`eflows.optimize` as a subclass of Platypus's `Problem` class.
+
+Currently, there is no web component to this project, despite being
+developed in Django. That's just futureproofing - it's all console
+access now. Unittests are available for data loading functions, but
+not for other functionality.
+
 If you want to do some testing, you can use `support.run_optimize_many()` (takes no arguments
  - tweak the code if you want it to be different) or use Platypus' Experimenter class.
  Note that currently, due to the way the model is constructed, you can't use parallel
