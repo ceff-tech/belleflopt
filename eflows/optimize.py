@@ -34,7 +34,7 @@ class InitialFlowsGenerator(Generator):
 class SparseList(list):
 	"""
 	via https://stackoverflow.com/a/1857860/587938 - looks like a nice
-	implenetation of a sparse list, which we'll want for when we do our
+	implemetation of a sparse list, which we'll want for when we do our
 	indexing and sums
 	"""
 	def __setitem__(self, index, value):
@@ -62,7 +62,7 @@ class HUCNetworkProblem(Problem):
 
 				Thinking that the constraint function will just traverse the network and make sure
 				that flow value in each HUC is less than or equal to the sum of that HUC's initial flow
-				plus everything upstream. T
+				plus everything coming from upstream.
 	"""
 	def __init__(self, decision_variables=None, objectives=2, *args):
 		"""
@@ -174,11 +174,13 @@ class HUCNetworkProblem(Problem):
 		# so long as it's consistent
 		self.set_huc_allocations(allocations=solution.variables)
 
+		# initialize code to track how many flow needs are met per species
 		met_needs = {}
 		for species in self.available_species:
 			met_needs[species] = 0
 
 		### TODO: REWORK THIS SLIGHTLY FOR BOTH MINIMUM AND MAXIMUM FLOW - DON'T THINK IT'LL WORK AS IS.
+		# Iterate through assemblages for all HUCs and evaluate which flow needs have been met.
 		for huc in self.hucs:
 			for species in huc.assemblage.all():  # for every species
 				needs = []
@@ -188,17 +190,20 @@ class HUCNetworkProblem(Problem):
 				needs = numpy.array(needs)
 				met_needs[species.common_name] += (needs < huc.flow_allocation).sum()  # / species.components.count()
 
-		#all_met = [1 for species in met_needs.keys() if met_needs[species] > 0.99]
+		# determine objective values
 		all_met = sum([met_needs[species] for species in met_needs])
 		min_met_needs = min([met_needs[species]/models.Species.objects.get(common_name=species).presence.count() for species in met_needs])
 
 		self.check_constraints()  # run it now - it'll set a flag that'll get returned by the constraint function
 		log.debug("Feasibility: {}".format("Feasible" if self.feasible == 0 else "Infeasible"))
+
+		# set the outputs - platypus looks for these here.
 		solution.objectives[0] = all_met
 		solution.objectives[1] = min_met_needs  # the total number of needs met
 		#solution.constraints[:self.decision_variables+1] = 99  # TODO: THIS MIGHT BE WRONG - THIS SET OF CONSTRAINTS MIGHT NOT
 													# FOLLOW THE 0/1 feasible/infeasible pattern - should confirm
 
+		# tracking values
 		self.iterations.append(self.eflows_nfe)
 		self.objective_1.append(all_met)
 		self.objective_2.append(min_met_needs)

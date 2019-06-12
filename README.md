@@ -19,6 +19,8 @@ Then set up the database. First, create it,
 python manage.py migrate
 python manage.py shell 
 ```
+
+## Running the prototype
 In the shell, run the following to load species, watershed, and flow data and set up the
 hydrologic network
 ```python
@@ -59,6 +61,37 @@ arguments - tweak the code if you want it to be different) or use Platypus' Expe
 Note that currently, due to the way the model is constructed, you can't use parallel
 expirementers - the database will lock and prevent multiple accesses.
 
+## Plugins
+The codebase is being designed to utilize a plugin infrastructure that encompasses as much as
+possible, to allow for this code to be a research platform that encourages exploration of outcomes
+as opposed to something that runs once and gives an answer. Plugins live in the `eflows.plugins` package
+and can be a package or a single module. If you create a package, the entry point must live in the `__init__.py`
+file so it can be found.
+
+Plugins are broadly split into two subfolders: `economics` and `environment` - each being
+used for objective functions that evaluate economic and environmental benefits of specific flows.
+
+In the future, it is possible that results and visualization may be included in plugins as well.
+
+To access a plugin from code, use `eflows.plugins.return_plugin_function`. For example, to get
+the entry point `environmental_benefit` from the `base` plugin in the `environment` folder, use
+the following:
+```python
+    from eflows import plugins
+    
+    environmental_benefit = plugins.return_plugin_function(package="eflows.plugins.environment.base", entry_point="environmental_benefit")
+```
+
+## Model Runs
+Model runs are handled in unit tests. While the main `eflows.tests` package holds standard
+unit tests, the `eflows.tests.model_runs` package is special in that each test class in a file
+in that package describes a discrete model run. Upon each commit, these runs will be re-evaluated
+with results uploaded to comet.ml so that performance of the results can be tracked over time,
+even as the code changes, allowing us to see if a model run that previously performed poorly is
+better after certain bugfixes, etc.
+
+The actual utilization of the model_runs package is not yet determined, but will be included here.
+ 
 ## Results
 Sample results are included below:
 ![Sample Results](maps/maps_layout.png)
