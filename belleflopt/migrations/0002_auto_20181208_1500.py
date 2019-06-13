@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('eflows', '0001_initial'),
+        ('belleflopt', '0001_initial'),
     ]
 
     operations = [

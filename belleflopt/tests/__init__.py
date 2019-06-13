@@ -2,7 +2,7 @@ import logging
 
 from django.test import TestCase
 
-from eflows import support
+from belleflopt import support
 
 log = logging.getLogger("eflows.optimization.tests")
 

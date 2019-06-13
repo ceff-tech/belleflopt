@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('eflows', '0003_auto_20181209_2138'),
+        ('belleflopt', '0003_auto_20181209_2138'),
     ]
 
     operations = [

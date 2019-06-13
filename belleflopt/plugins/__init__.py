@@ -1,5 +1,5 @@
 import importlib
-from eflows
+from belleflopt
 
 def return_plugin_function(package, entry_point):
 	"""

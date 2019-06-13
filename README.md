@@ -1,9 +1,18 @@
-# Eflows Optimization
+# Belleflopt - An Environmental Flows Optimization Platform
+A tool to allocate unimpaired flows optimally for environmental purposes. Developed for Python 3.6 and Django 2.1.
 
-A tool to allocate unimpaired flows optimally for environmental purposes.
+## What's with the name?
+It's prounounced like "belly flopped", and can be broken down as:
+* _bell_ - just a support for the rest of it
+* _e_ - "environment"
+* _flo_ - "flow"
+* _opt_ - "optimization"
 
-Developed for Python 3.6 and Django 2.1.
+And belly flops are a silly thing that happens in water sometimes. This codebase uses an
+evolutionary algorithm to find optimal environmental flow and economic tradeoffs,
+so it might perform a few bellyflops of its own.
 
+## Setup
 To use, first rename `eflows_optimization/local_settings_template.py` to
 `eflows_optimization/local_settings.py`. Inside that file, change the value
 of `SECRET_KEY` to a cryptographically secure value.
@@ -24,7 +33,7 @@ python manage.py shell
 In the shell, run the following to load species, watershed, and flow data and set up the
 hydrologic network
 ```python
-from eflows import support
+from belleflopt import support
 support.reset()
 ```
 
@@ -46,7 +55,7 @@ That function's signature looks like the following:
 	:param show_plots: Whether plots should be output to the screen
 	:return: None
 	"""
-```
+``****`
 
 If you want to take a look at the optimization innards, they're in
 `eflows.optimize` as a subclass of Platypus's `Problem` class.

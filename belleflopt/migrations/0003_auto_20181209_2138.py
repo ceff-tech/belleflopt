@@ -7,14 +7,14 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('eflows', '0002_auto_20181208_1500'),
+        ('belleflopt', '0002_auto_20181208_1500'),
     ]
 
     operations = [
         migrations.AlterField(
             model_name='huc',
             name='downstream',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='upstream_single_huc', to='eflows.HUC'),
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='upstream_single_huc', to='belleflopt.HUC'),
         ),
         migrations.AlterField(
             model_name='huc',
@@ -29,6 +29,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='huc',
             name='upstream',
-            field=models.ManyToManyField(related_name='upstream_relationship_dont_use', to='eflows.HUC'),
+            field=models.ManyToManyField(related_name='upstream_relationship_dont_use', to='belleflopt.HUC'),
         ),
     ]

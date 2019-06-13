@@ -7,8 +7,8 @@ from matplotlib import pyplot as plt
 from platypus import NSGAII, SMPSO, GDE3, SPEA2
 
 from eflows_optimization import settings
-from eflows import models
-from eflows import optimize
+from belleflopt import models
+from belleflopt import optimize
 
 log = logging.getLogger("eflows.optimization.support")
 

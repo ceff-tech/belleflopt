@@ -4,9 +4,9 @@ import matplotlib.pyplot as plt
 
 from django.test import TestCase
 
-from eflows import models
-from eflows import support
-from eflows import optimize
+from belleflopt import models
+from belleflopt import support
+from belleflopt import optimize
 
 log = logging.getLogger("eflows.optimization.tests")
 

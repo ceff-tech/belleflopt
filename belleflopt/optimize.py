@@ -5,7 +5,7 @@ import numpy
 from platypus import Problem, Real
 from platypus.operators import Generator, Solution
 
-from eflows import models
+from belleflopt import models
 
 log = logging.getLogger("eflows.optimization")
 
