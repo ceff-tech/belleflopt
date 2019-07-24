@@ -55,7 +55,7 @@ That function's signature looks like the following:
 	:param show_plots: Whether plots should be output to the screen
 	:return: None
 	"""
-``****`
+```
 
 If you want to take a look at the optimization innards, they're in
 `eflows.optimize` as a subclass of Platypus's `Problem` class.
