@@ -23,13 +23,14 @@ steps:
     architecture: 'x64'
 
 - task: PythonScript@0
-  displayName: 'Export project path'
+  displayName: 'Export project path and copy local_settings_template.py to local_settings.py'
   inputs:
     scriptSource: 'inline'
     script: |
       """Search all subdirectories for `manage.py`."""
       from glob import iglob
       from os import path
+      import shutil
       # Python >= 3.5
       manage_py = next(iglob(path.join('**', 'manage.py'), recursive=True), None)
       if not manage_py:
@@ -37,6 +38,11 @@ steps:
       project_location = path.dirname(path.abspath(manage_py))
       print('Found Django project in', project_location)
       print('##vso[task.setvariable variable=projectRoot]{}'.format(project_location))
+      print("Copying local_settings_template.py to local_settings.py")
+      eflows_opt = path.join(project_location, "eflows_optimization")
+      lst = path.join(eflows_opt, "local_settings_template.py")
+      ls = path.join(eflows_opt, "local_settings.py")
+      shutil.copyfile(lst, ls)
 
 - script: |
     python -m pip install --upgrade pip setuptools wheel
