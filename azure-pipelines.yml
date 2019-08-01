@@ -7,7 +7,7 @@ trigger:
 - master
 
 pool:
-  name: 'belleflopt'
+  vmImage: 'ubuntu-latest'
 strategy:
   matrix:
     Python36:
