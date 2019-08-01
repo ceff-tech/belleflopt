@@ -7,7 +7,7 @@ trigger:
 - master
 
 pool:
-  name: 'eflows-optimization'
+  name: 'belleflopt'
 strategy:
   matrix:
     Python36:
