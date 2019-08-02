@@ -166,7 +166,7 @@ def run_optimize(algorithm=NSGAII, NFE=1000, popsize=25, seed=20181214, show_plo
 	"""
 
 	experiment = comet.new_experiment()
-	experiment.log_parameters({"algorithm":algorithm, "NFE": NFE, "popsize":popsize, "seed":seed})
+	experiment.log_parameters({"algorithm": algorithm, "NFE": NFE, "popsize": popsize, "seed": seed})
 
 	random.seed = seed
 
@@ -192,21 +192,21 @@ def run_optimize(algorithm=NSGAII, NFE=1000, popsize=25, seed=20181214, show_plo
 
 	log.debug("{} feasible, {} infeasible".format(feasible, infeasible))
 	_plot(eflows_opt, "Pareto Front: {} NFE, PopSize: {}".format(NFE, popsize),
+		  				experiment=experiment,
 						show=show_plots,
 						filename=os.path.join(settings.BASE_DIR, "data", "results", "pareto_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__, str(seed), str(NFE), str(popsize))))
-	experiment.log_figure("Pareto Front")
 
 	_plot_convergence(problem.iterations, problem.objective_1,
 					  "Total Needs Satisfied v NFE. Alg: {}, PS: {}, Seed: {}".format(algorithm.__name__, str(popsize), str(seed)),
-					  show=show_plots,
+					  	experiment=experiment,
+						show=show_plots,
 						filename=os.path.join(settings.BASE_DIR, "data", "results", "convergence_obj1_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__,str(seed),str(NFE),str(popsize))))
-	experiment.log_figure("Total Needs Satisfied")
 
 	_plot_convergence(problem.iterations, problem.objective_2, "Min percent of needs satisfied by species v NFEAlg: {}, PS: {}, Seed: {}".format(algorithm.__name__, str(popsize), str(seed)),
+					  experiment=experiment,
 					  show=show_plots,
 					  filename=os.path.join(settings.BASE_DIR, "data", "results", "convergence_obj2_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__, str(seed),
 																					   str(NFE), str(popsize))))
-	experiment.log_figure("Min Percent Needs Satisfied")
 
 	for huc in problem.hucs:
 		huc.save()  # save the results out
@@ -220,9 +220,12 @@ def run_optimize(algorithm=NSGAII, NFE=1000, popsize=25, seed=20181214, show_plo
 	return file_path
 
 
-def _plot(optimizer, title, filename=None, show=False):
+def _plot(optimizer, title, experiment, filename=None, show=False):
 	x = [s.objectives[0] for s in optimizer.result if s.feasible]
 	y = [s.objectives[1] for s in optimizer.result if s.feasible]
+	experiment.log_parameter("x", x)
+	experiment.log_parameter("y", y)
+
 	log.debug("X: {}".format(x))
 	log.debug("Y: {}".format(y))
 	plt.scatter(x, y)
@@ -231,6 +234,9 @@ def _plot(optimizer, title, filename=None, show=False):
 	plt.xlabel("Total Needs Satisfied")
 	plt.ylabel("Minimum percent of HUC needs satisfied")
 	plt.title(title)
+
+	experiment.log_figure(title)
+
 	if filename:
 		plt.savefig(fname=filename)
 	if show:
@@ -239,7 +245,7 @@ def _plot(optimizer, title, filename=None, show=False):
 	plt.close()
 
 
-def _plot_convergence(i, objective, title, filename=None, show=False):
+def _plot_convergence(i, objective, title, experiment, filename=None, show=False):
 	x = i
 	y = objective
 	plt.plot(x, y, color='steelblue', linewidth=1)
@@ -248,6 +254,9 @@ def _plot_convergence(i, objective, title, filename=None, show=False):
 	plt.xlabel("NFE")
 	plt.ylabel("Objective Value")
 	plt.title(title)
+
+	experiment.log_figure(title)
+
 	if filename:
 		plt.savefig(fname=filename)
 	if show:

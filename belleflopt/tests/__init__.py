@@ -17,4 +17,4 @@ class TestOptimization(TestCase):
 		support.reset()  # loads everything into the DB
 
 	def test_optimize(self):
-		results = support.run_optimize(NFE=350, popsize=25)
+		results = support.run_optimize(NFE=50, popsize=25)
