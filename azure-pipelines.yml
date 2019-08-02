@@ -54,6 +54,8 @@ steps:
     pushd '$(projectRoot)'
     python manage.py test --testrunner xmlrunner.extra.djangotestrunner.XMLTestRunner --no-input
   displayName: 'Run tests'
+  env:
+    COMET_ML_API_KEY: $(COMET_ML_API_KEY)
 
 - task: PublishTestResults@2
   inputs:

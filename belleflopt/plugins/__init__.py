@@ -1,5 +1,4 @@
 import importlib
-from belleflopt
 
 def return_plugin_function(package, entry_point):
 	"""
