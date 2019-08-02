@@ -9,6 +9,7 @@ from platypus import NSGAII, SMPSO, GDE3, SPEA2
 from eflows_optimization import settings
 from belleflopt import models
 from belleflopt import optimize
+from belleflopt import comet
 
 log = logging.getLogger("eflows.optimization.support")
 
@@ -164,6 +165,9 @@ def run_optimize(algorithm=NSGAII, NFE=1000, popsize=25, seed=20181214, show_plo
 	:return: None
 	"""
 
+	experiment = comet.new_experiment()
+	experiment.log_parameters({"algorithm":algorithm, "NFE": NFE, "popsize":popsize, "seed":seed})
+
 	random.seed = seed
 
 	problem = optimize.HUCNetworkProblem()
@@ -182,26 +186,38 @@ def run_optimize(algorithm=NSGAII, NFE=1000, popsize=25, seed=20181214, show_plo
 	eflows_opt.run(NFE)
 	feasible = sum([1 for solution in eflows_opt.result if solution.feasible is True])
 	infeasible = sum([1 for solution in eflows_opt.result if solution.feasible is False])
+
+	experiment.log_parameter("feasible", feasible)
+	experiment.log_parameter("infeasible", infeasible)
+
 	log.debug("{} feasible, {} infeasible".format(feasible, infeasible))
 	_plot(eflows_opt, "Pareto Front: {} NFE, PopSize: {}".format(NFE, popsize),
 						show=show_plots,
 						filename=os.path.join(settings.BASE_DIR, "data", "results", "pareto_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__, str(seed), str(NFE), str(popsize))))
-
+	experiment.log_figure("Pareto Front")
 
 	_plot_convergence(problem.iterations, problem.objective_1,
 					  "Total Needs Satisfied v NFE. Alg: {}, PS: {}, Seed: {}".format(algorithm.__name__, str(popsize), str(seed)),
 					  show=show_plots,
 						filename=os.path.join(settings.BASE_DIR, "data", "results", "convergence_obj1_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__,str(seed),str(NFE),str(popsize))))
+	experiment.log_figure("Total Needs Satisfied")
 
 	_plot_convergence(problem.iterations, problem.objective_2, "Min percent of needs satisfied by species v NFEAlg: {}, PS: {}, Seed: {}".format(algorithm.__name__, str(popsize), str(seed)),
 					  show=show_plots,
 					  filename=os.path.join(settings.BASE_DIR, "data", "results", "convergence_obj2_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__, str(seed),
 																					   str(NFE), str(popsize))))
+	experiment.log_figure("Min Percent Needs Satisfied")
 
 	for huc in problem.hucs:
 		huc.save()  # save the results out
 
-	output_table(problem.hucs,output_path=os.path.join(settings.BASE_DIR, "data", "results", "results_{}_seed{}_nfe{}_popsize{}.csv".format(algorithm.__name__,str(seed),str(NFE),str(popsize))))
+	file_path = os.path.join(settings.BASE_DIR, "data", "results", "results_{}_seed{}_nfe{}_popsize{}.csv".format(algorithm.__name__,str(seed),str(NFE),str(popsize)))
+	output_table(problem.hucs, output_path=file_path)
+
+	experiment.log_asset(file_path, "results.csv")
+	experiment.end()
+
+	return file_path
 
 
 def _plot(optimizer, title, filename=None, show=False):
