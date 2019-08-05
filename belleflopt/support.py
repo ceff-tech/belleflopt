@@ -223,8 +223,8 @@ def run_optimize(algorithm=NSGAII, NFE=1000, popsize=25, seed=20181214, show_plo
 def _plot(optimizer, title, experiment, filename=None, show=False):
 	x = [s.objectives[0] for s in optimizer.result if s.feasible]
 	y = [s.objectives[1] for s in optimizer.result if s.feasible]
-	experiment.log_parameter("x", x)
-	experiment.log_parameter("y", y)
+	comet.log_metric("NeedsMet", x, experiment=experiment)  # log the resulting values
+	comet.log_metric("SecondAxis", y, experiment=experiment)
 
 	log.debug("X: {}".format(x))
 	log.debug("Y: {}".format(y))
