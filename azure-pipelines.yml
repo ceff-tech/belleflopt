@@ -13,8 +13,8 @@ pool:
   vmImage: 'ubuntu-latest'
 strategy:
   matrix:
-    Python36:
-      PYTHON_VERSION: '3.6'
+    #Python36:
+    #  PYTHON_VERSION: '3.6'  # let's only use one version of Python right now, but keep the naming for each so we can split out other parameters later
     Python37:
       PYTHON_VERSION: '3.7'
   maxParallel: 3
