@@ -26,7 +26,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-	'belleflopt.apps.EflowsConfig',
+	'belleflopt',
 ]
 
 MIDDLEWARE = [
@@ -139,6 +139,11 @@ LOGGING = {
             'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
         },
         'eflows': {
+            'handlers': ['console', 'file_debug'],
+            'level': 'DEBUG'
+        },
+
+        'belleflopt': {
             'handlers': ['console', 'file_debug'],
             'level': 'DEBUG'
         },
