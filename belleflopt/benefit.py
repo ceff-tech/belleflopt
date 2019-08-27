@@ -18,10 +18,10 @@ class BenefitBox(object):
         window_size = self.high_flow - self.low_flow
         margin_size = int(margin * window_size)
 
-        q1 = low_flow - margin_size
-        q2 = low_flow + margin_size
-        q3 = high_flow - margin_size
-        q4 = high_flow + margin_size
+        q1 = self.low_flow - margin_size
+        q2 = self.low_flow + margin_size
+        q3 = self.high_flow - margin_size
+        q4 = self.high_flow + margin_size
 
         if flow < q1 or flow > q4:  # if it's way outside the window, benefit is 0
             return 0
