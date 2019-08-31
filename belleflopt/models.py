@@ -1,6 +1,5 @@
 from django.db import models
 
-
 class Species(models.Model):
 	common_name = models.CharField(null=False, max_length=255)
 	pisces_fid = models.CharField(null=False, max_length=6)
