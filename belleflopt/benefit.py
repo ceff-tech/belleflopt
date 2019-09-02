@@ -109,13 +109,12 @@ class BenefitBox(object):
     flow_item = None
     date_item = None
 
-    def __init__(self, low_flow, high_flow, start_day_of_water_year, end_day_of_water_year):
+    def __init__(self, low_flow, high_flow, start_day_of_water_year, end_day_of_water_year, flow_margin=0.1, date_margin=0.1):
         self.low_flow = low_flow
         self.high_flow = high_flow
         self.start_day_of_water_year = start_day_of_water_year
         self.end_day_of_water_year = end_day_of_water_year
 
-    def single_flow_benefit(self, flow, day_of_year, flow_margin=0.1, date_margin=0.1):
         self.flow_item = BenefitItem()
         self.flow_item.low_bound = self.low_flow
         self.flow_item.high_bound = self.high_flow
@@ -126,6 +125,12 @@ class BenefitBox(object):
         self.date_item.high_bound = self.end_day_of_water_year
         self.date_item.rollover = 365  # tell it that the last day of the year is equal to the first
         self.date_item.margin = date_margin
+
+    def single_flow_benefit(self, flow, day_of_year, flow_margin=None, date_margin=None):
+        if not flow_margin:
+            flow_margin = self.flow_item.margin
+        if not date_margin:
+            date_margin = self.date_item.margin
 
         return self.flow_item.single_value_benefit(value=flow, margin=flow_margin) * self.date_item.single_value_benefit(value=day_of_year, margin=date_margin)
 
