@@ -1,5 +1,6 @@
 import functools
 
+import numpy
 from matplotlib import pyplot as plt
 import seaborn
 
@@ -68,6 +69,16 @@ class BenefitItem(object):
         self._q3 = self.high_bound - margin_size
         self._q4 = self.high_bound + margin_size
 
+    def plot_window(self):
+        """
+            Provides the safe margins for plotting
+        :return:
+        """
+        low_value = int(self._q1 - (self._q4 - self._q1)/4)
+        high_value = int(self._q4 + (self._q4 -self._q1)/4)
+
+        return low_value, high_value
+
     def single_value_benefit(self, value, margin):
         """
             Calculates the benefit of a single flow in relation to this box.
@@ -109,6 +120,8 @@ class BenefitBox(object):
     flow_item = None
     date_item = None
 
+    _annual_benefit = None
+
     def __init__(self, low_flow, high_flow, start_day_of_water_year, end_day_of_water_year, flow_margin=0.1, date_margin=0.1):
         self.low_flow = low_flow
         self.high_flow = high_flow
@@ -132,7 +145,22 @@ class BenefitBox(object):
         if not date_margin:
             date_margin = self.date_item.margin
 
-        return self.flow_item.single_value_benefit(value=flow, margin=flow_margin) * self.date_item.single_value_benefit(value=day_of_year, margin=date_margin)
+        flow_benefit = self.flow_item.single_value_benefit(value=flow, margin=flow_margin)
+        time_benefit = self.date_item.single_value_benefit(value=day_of_year, margin=date_margin)
+
+        return flow_benefit * time_benefit
+
+    @property
+    def annual_benefit(self):
+        if self._annual_benefit is not None:
+            return self._annual_benefit
+
+        date_max = self.date_item.plot_window()[1]
+        flow_max = self.flow_item.plot_window()[1]
+        benefit_function = numpy.vectorize(self.single_flow_benefit, otypes=[float])
+        days, flows = numpy.indices((date_max, flow_max))  # get the indices to pass through the vectorized function as flows and days
+        self._annual_benefit = benefit_function(flows, days)
+        return self._annual_benefit
 
     def plot_flow_benefit(self, min_flow=None, max_flow=None, day_of_year=100):
 
@@ -157,11 +185,26 @@ class BenefitBox(object):
         plt.axvline(self.high_flow, 0, 1, dashes=(5, 8))
 
         # add points for the qs
-        plt.scatter([self.flow_item._q1, self.flow_item._q2*self.date_item._q2, self.flow_item._q3*self.date_item._q3, self.flow_item._q4], [0, 1, 1, 0])
+        q2_benefit = self.single_flow_benefit(self.flow_item._q2, day_of_year=day_of_year)
+        q3_benefit = self.single_flow_benefit(self.flow_item._q3, day_of_year=day_of_year)
+        plt.scatter([self.flow_item._q1, self.flow_item._q2, self.flow_item._q3, self.flow_item._q4], [0, q2_benefit, q3_benefit, 0])
 
         # label the qs
         plt.text(self.flow_item._q1 + 6, -0.015, "q1", fontsize=9, fontstyle="italic")
-        plt.text(self.flow_item._q2 - 19, 0.985, "q2", fontsize=9, fontstyle="italic")
-        plt.text(self.flow_item._q3 + 6, 0.985, "q3", fontsize=9, fontstyle="italic")
+        plt.text(self.flow_item._q2 - 19, q2_benefit - 0.015, "q2", fontsize=9, fontstyle="italic")
+        plt.text(self.flow_item._q3 + 6, q3_benefit - 0.015, "q3", fontsize=9, fontstyle="italic")
         plt.text(self.flow_item._q4 - 19, -0.015, "q4", fontsize=9, fontstyle="italic")
+
+        plt.ylim(-0.05, 1.05)
+        plt.title("Benefit for flow component -  Flow:({}, {}), DOY:({}, {}) on day {}".format(self.low_flow,
+                                                                                               self.high_flow,
+                                                                                               self.start_day_of_water_year,
+                                                                                               self.end_day_of_water_year,
+                                                                                               day_of_year))
+        plt.show()
+
+    def plot_annual_benefit(self):
+        plt.imshow(self.annual_benefit, cmap='viridis')
+        plt.xlim(*self.flow_item.plot_window())
+        plt.ylim(*self.date_item.plot_window())
         plt.show()
