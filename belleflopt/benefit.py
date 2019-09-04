@@ -6,7 +6,13 @@ import seaborn
 
 
 class BenefitItem(object):
-
+    """
+        Could be the benefit on a day of the year or of a specific flow. Has a window of values
+        and a margin over which benefit goes from 0-1 at the edges of those values. Calculates
+        benefit for specific values based on this window and that margin. Abstracted here so
+        that we can use if for dates or flows, but the locations of the "corners" still use
+        the "q" terminology from the flows.
+    """
     _low_bound = None
     _high_bound = None
 
@@ -139,6 +145,13 @@ class BenefitBox(object):
         self.date_item.rollover = 365  # tell it that the last day of the year is equal to the first
         self.date_item.margin = date_margin
 
+    @property
+    def name(self):
+        return "Flow Component - Flow: ({}, {}), DOY: ({}, {})".format(self.low_flow,
+                                                            self.high_flow,
+                                                            self.start_day_of_water_year,
+                                                            self.end_day_of_water_year,)
+
     def single_flow_benefit(self, flow, day_of_year, flow_margin=None, date_margin=None):
         if not flow_margin:
             flow_margin = self.flow_item.margin
@@ -196,15 +209,20 @@ class BenefitBox(object):
         plt.text(self.flow_item._q4 - 19, -0.015, "q4", fontsize=9, fontstyle="italic")
 
         plt.ylim(-0.05, 1.05)
-        plt.title("Benefit for flow component -  Flow:({}, {}), DOY:({}, {}) on day {}".format(self.low_flow,
-                                                                                               self.high_flow,
-                                                                                               self.start_day_of_water_year,
-                                                                                               self.end_day_of_water_year,
-                                                                                               day_of_year))
+        plt.title("Benefit for {} on day {}".format(self.name, day_of_year))
         plt.show()
 
     def plot_annual_benefit(self):
-        plt.imshow(self.annual_benefit, cmap='viridis')
+
+        plt.imshow(self.annual_benefit,
+                   cmap='viridis',
+                   aspect="auto",  # allows it to fill the whole plot - by default keeps the axes on the same scale
+                   vmin=0,  # force the data minimum to 0 - this should happen anyway, but let's be explicit
+                   vmax=1,  # force the color scale to top out at 1, not at the data max
+                   )
         plt.xlim(*self.flow_item.plot_window())
         plt.ylim(*self.date_item.plot_window())
+        plt.title("Annual benefit for {}".format(self.name))
+        plt.xlabel("Flow/Q (CFS)")
+        plt.ylabel("Day of Water Year")
         plt.show()
