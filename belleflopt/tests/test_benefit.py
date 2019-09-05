@@ -64,3 +64,17 @@ class TestQValues(TestCase):
         self.assertEqual(bb.date_item._q1, 0)
         self.assertEqual(bb.date_item._q3, bb.date_item._q4)
         self.assertEqual(bb.date_item._q3, 365)
+
+
+class TestCrossYearComponent(TestCase):
+    """
+        Tests for flow components that cross water years
+    """
+
+    def test_simple_cross_year_component(self):
+        self.assertRaises(NotImplementedError, benefit.BenefitBox,
+                          low_flow=200,
+                          high_flow=400,
+                          start_day_of_water_year=300,
+                          end_day_of_water_year=50,
+                          date_margin=0.2)

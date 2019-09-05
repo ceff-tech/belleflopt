@@ -70,6 +70,9 @@ class BenefitItem(object):
             self._q1 = self._q2 = self.low_bound
             return
 
+        if self.rollover and self.high_bound < self.low_bound:  # basically, rollover only activates for dates, and we're saying "if the end date is before the start date"
+            raise NotImplementedError("Can't currently support flow components whose end Day of Year is before the start Day of Year. More work is needed to define components that cross water years.")
+
         self._q1 = self.low_bound - margin_size
         self._q2 = self.low_bound + margin_size
         self._q3 = self.high_bound - margin_size

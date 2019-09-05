@@ -1,6 +1,8 @@
 # Belleflopt - An Environmental Flows Optimization Platform
 A tool to allocate unimpaired flows optimally for environmental purposes. Developed for Python 3.6 and Django 2.1.
 
+Build and Testing Status: [![Build Status](https://dev.azure.com/nickrsantos/belleflopt/_apis/build/status/ceff-tech.belleflopt?branchName=master)](https://dev.azure.com/nickrsantos/belleflopt/_build/latest?definitionId=2&branchName=master)
+
 ## What's with the name?
 It's prounounced like "belly flopped", and can be broken down as:
 * _bell_ - just a support for the rest of it
