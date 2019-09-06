@@ -228,4 +228,5 @@ class BenefitBox(object):
         plt.title("Annual benefit for {}".format(self.name))
         plt.xlabel("Flow/Q (CFS)")
         plt.ylabel("Day of Water Year")
+        plt.colorbar()
         plt.show()

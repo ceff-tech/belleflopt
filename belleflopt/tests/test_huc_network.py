@@ -33,6 +33,15 @@ class TestHUCNetwork(TestCase):
 		self._print_and_check_huc_info(small_upstream_huc, "Small Upstream", 2)
 		self._print_and_check_huc_info(mid_upstream_huc, "Mid Upstream", 11)
 
+	def test_flow_available(self):
+		support.load_climate()
+
+		for huc in models.HUC.objects.all():
+			self.assertIsNotNone(huc.initial_available_water)
+			self.assertGreaterEqual(huc.initial_available_water, 0)
+
+
+class SpeciesTest(TestCase):
 	def test_species_load(self):
 		support.load_species()
 
@@ -63,10 +72,3 @@ class TestHUCNetwork(TestCase):
 		# This isn't a great test, but it'll do for now - probably worth expanding in the future
 		# if we continue using this (as opposed to loading data straight from PISCES)
 		self.assertEqual(not_found, 55)
-
-	def test_flow_available(self):
-		support.load_climate()
-
-		for huc in models.HUC.objects.all():
-			self.assertIsNotNone(huc.initial_available_water)
-			self.assertGreaterEqual(huc.initial_available_water, 0)

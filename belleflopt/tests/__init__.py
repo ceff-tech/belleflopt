@@ -14,7 +14,9 @@ class TestOptimization(TestCase):
 		that runs the optimization and logs results to comet.ml
 	"""
 	def setUp(self):
-		support.reset()  # loads everything into the DB
+		pass
+		#support.reset()  # loads everything into the DB
 
 	def test_optimize(self):
-		results = support.run_optimize(NFE=50, popsize=25)
+		pass
+		# results = support.run_optimize(NFE=50, popsize=25)
