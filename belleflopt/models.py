@@ -18,6 +18,19 @@ class StreamSegment(models.Model):
 	def __str__(self):
 		return "Segment {}: {}".format(self.com_id, self.name)
 
+	def __init__(self):
+		"""
+			We want to define our own because we'll attach non-Django benefit classes that we don't want to persist
+			or be Django classes for performance reasons
+		"""
+
+		# We'll need some kind of item here that manages the benefit calculations of the subcomponents through time.
+		# Might need one for environmental benefit and one for economic benefit
+		# self.environmental_flows = None  # this will become a numpy series later of the daily allocated flows
+		# self.economic_flows = None  # this will become a numpy series later of the daily allocated flows
+
+		super().__init__()
+
 
 class Species(models.Model):
 	common_name = models.CharField(null=False, max_length=255)
@@ -37,28 +50,26 @@ class FlowComponent(models.Model):
 		relation and the intervening model is what relates components to stream segments
 		and contains the actual data for a segment
 	"""
-	name = models.CharField(null=False, max_length=255)
-	ceff_id = models.CharField(null=False, max_length=100)  # the ID used in CEFF for this component
+	name = models.CharField(null=False, max_length=255, unique=True)
+	# ceff_id = models.CharField(null=False, max_length=100)  # the ID used in CEFF for this component
 	segments = models.ManyToManyField(StreamSegment, related_name="components", through="SegmentComponent")
 
-	def __init__(self):
-		"""
-			We want to define our own because we'll attach non-Django benefit classes that we don't want to persist
-			or be Django classes for performance reasons
-		"""
 
-		# We'll need some kind of item here that manages the benefit calculations of the subcomponents through time.
-		# Might need one for environmental benefit and one for economic benefit
-		# self.environmental_flows = None  # this will become a numpy series later of the daily allocated flows
-		# self.economic_flows = None  # this will become a numpy series later of the daily allocated flows
+class FlowMetric(models.Model):
+	"""
+		Just defining available metrics - no data in here really
+	"""
 
-		super().__init__()
+	component = models.ForeignKey(FlowComponent, on_delete=models.CASCADE)
+	characteristic = models.CharField(max_length=100)
+	metric = models.CharField(max_length=50)
+	description = models.TextField()
 
 	def __repr__(self):
-		return self.name
+		return "{}: {} - {}".format(self.component.name, self.characteristic, self.metric)
 
 	def __str__(self):
-		return self.name
+		return self.__repr__()
 
 
 class SegmentComponent(models.Model):
@@ -66,12 +77,14 @@ class SegmentComponent(models.Model):
 		Related to StreamSegment and FlowComponent via the ManyToManyField on FlowComponent. Holds
 		the data for a given flow component and segment
 	"""
-	# primary data for this component/segment
-	pct_10 = models.DecimalField(max_digits=8, decimal_places=2)
-	pct_25 = models.DecimalField(max_digits=8, decimal_places=2)
-	pct_50 = models.DecimalField(max_digits=8, decimal_places=2)
-	pct_75 = models.DecimalField(max_digits=8, decimal_places=2)
-	pct_90 = models.DecimalField(max_digits=8, decimal_places=2)
+
+
+	start_day = models.PositiveSmallIntegerField()
+	duration = models.PositiveSmallIntegerField()  # we're working in days right now - if we were working in seconds, we might consider a DurationField instead
+	# end_day is a property calculated from start_day and duration
+
+	minimum_magnitude = models.DecimalField(max_digits=8, decimal_places=2)
+	maximum_magnitude = models.DecimalField(max_digits=8, decimal_places=2)
 
 	# the stream and component this data is for
 	stream_segment = models.ForeignKey(StreamSegment, on_delete=models.DO_NOTHING)
@@ -86,6 +99,30 @@ class SegmentComponent(models.Model):
 		# self.benefit = benefit.BenefitBox()  # this will need to change, but is here to show the strategy - we'll probably have some kind of BenefitManager
 
 		super().__init__()
+
+	@property
+	def end_day(self):
+		return self.start_day + self.duration
+
+
+class SegmentComponentDescriptor(models.Model):
+	"""
+		Raw data for each flow component spec - straight out of the spreadsheet. SegmentComponents will be built from
+		this. I think these are equivalent to the functional flow metrics (FFMs).
+	"""
+
+	flow_component = models.ForeignKey(SegmentComponent, on_delete=models.DO_NOTHING)
+	ceff_code = models.CharField(max_length=30)  # the code for this component descriptor
+	source_type = models.CharField(max_length=30, null=True)  # source in spreadsheet
+	source_name = models.CharField(max_length=30, null=True)  # source2
+	notes = models.TextField(null=True, blank=True)
+
+	# primary data for this component/segment
+	pct_10 = models.DecimalField(max_digits=8, decimal_places=2)
+	pct_25 = models.DecimalField(max_digits=8, decimal_places=2)
+	pct_50 = models.DecimalField(max_digits=8, decimal_places=2)
+	pct_75 = models.DecimalField(max_digits=8, decimal_places=2)
+	pct_90 = models.DecimalField(max_digits=8, decimal_places=2)
 
 
 class SegmentPresence(models.Model):
