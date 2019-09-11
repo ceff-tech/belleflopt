@@ -7,7 +7,7 @@ metric_flow_mapping = {
 
 
 class BaseFlowComponentBenefitManager(object):
-	def _
+	pass
 
 
 class SpringRecessionBenefitManager(BaseFlowComponentBenefitManager):
@@ -32,5 +32,4 @@ class WinterPeakFlowBenefitManager(BaseFlowComponentBenefitManager):
 id_manager_map = {
 	"Mag_50": SummerBaseFlowBenefitManager,
 	"Peak_20": WinterPeakFlowBenefitManager,
-	""
 }

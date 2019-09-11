@@ -4,13 +4,39 @@ from belleflopt import benefit
 
 
 class StreamSegment(models.Model):
+	CONNECTOR = "Connector"
+	CANAL_DITCH = "CanalDitch"
+	UNDERGROUND_CONDUIT = "UndergroundConduit"
+	PIPELINE = "PIPELINE"
+	STREAM_RIVER = "StreamRiver"
+	ARTIFICIAL_PATH = "ArtificialPath"
+	COASTLINE = "Coastline"
+
+	FTYPE_CHOICES = [
+		(CONNECTOR, CONNECTOR),
+		(CANAL_DITCH, CANAL_DITCH),
+		(UNDERGROUND_CONDUIT, UNDERGROUND_CONDUIT),
+		(PIPELINE, PIPELINE),
+		(STREAM_RIVER, STREAM_RIVER),
+		(ARTIFICIAL_PATH, ARTIFICIAL_PATH),
+		(COASTLINE, COASTLINE)
+	]
+
 	com_id = models.CharField(null=False, max_length=25)
 	name = models.CharField(null=True, max_length=255, blank=True)  # include the name just for our own usefulness
+	ftype = models.CharField(null=True, blank=True, max_length=32, choices=FTYPE_CHOICES)
+	strahler_order = models.PositiveSmallIntegerField(null=True, blank=True)
+	total_upstream_area = models.DecimalField(max_digits=12, decimal_places=5)
 	# components
 	# species
 
+	upstream_node_id = models.CharField(max_length=30)
+	downstream_node_id = models.CharField(max_length=30)
+
 	downstream = models.ForeignKey("self", null=True, on_delete=models.DO_NOTHING, related_name="upstream_single_huc")  # needs to be nullable for creation
 	upstream = models.ManyToManyField("self", symmetrical=False, related_name="all_downstream_segments")  # we can build our upstream network once here!
+
+	subwatershed = models.ForeignKey("HUC", null=True, on_delete=models.DO_NOTHING)  # keep it so we can potentially do aggregation in the future
 
 	def __repr__(self):
 		return "Segment {}: {}".format(self.com_id, self.name)
@@ -160,3 +186,7 @@ class HUC(models.Model):
 		:return:
 		"""
 		return self.upstream_total_flow + self.initial_available_water
+
+	@property
+	def huc_8(self):
+		return self.huc_id[:8]

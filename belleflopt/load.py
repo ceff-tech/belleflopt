@@ -1,4 +1,13 @@
+import os
+import csv
+import logging
+
+from eflows_optimization import settings
 from belleflopt import models
+
+log = logging.getLogger("belleflopt.load")
+
+NO_DOWNSTREAM = ("OCEAN", "MEXICO", "CLOSED_BASIN")
 
 
 def load_flow_components():
@@ -132,6 +141,73 @@ def load_flow_metrics():
 def load_flow_metric_data(path):
 	# load csv
 
-	# for each row, check if the
+	# we could make it load the NHDSegment if it doesn't exist, but it's probably worth loading from a known dataset beforehand so we can add the downstream information and name
 
 	pass
+
+
+def _get_upstream(stream_segment, force=False):
+	if stream_segment.upstream.count() > 0 and not force:
+		return  # if this function is called when it already has upstream hucs defined, it's already complete - return immediately
+
+	upstream = models.StreamSegment.objects.filter(downstream_id=stream_segment.id)  # get all the upstream of the current HUC
+	for segment in upstream:  # for each upstream huc, find *its* upstream hucs and add them here too
+		_get_upstream(segment)  # this needs to run for all the upstream hucs first
+		segment.refresh_from_db()  # make sure it correctly gets the new info we just loaded for it
+
+		if segment.upstream.count() > 0:
+			for upstream_segment in segment.upstream.all():
+				if upstream_segment.com_id == segment.huc_id or upstream_segment.com_id == stream_segment.com_id or (stream_segment.downstream is not None and upstream_segment.com_id == stream_segment.downstream.com_id):
+					continue
+
+				stream_segment.upstream.add(upstream_segment)
+	# now we can fill in the current huc with the upstream hucs filled
+	# ON DEBUG - confirm that these instances will pick up upstream changes in recursive function
+
+		stream_segment.upstream.add(segment)  # add the upstream huc
+
+	stream_segment.save()
+
+
+def load_nhd(filepath=os.path.join(settings.BASE_DIR, "data", "eel_hucs.csv")):
+	with open(filepath, 'r') as huc_data:
+		csv_data = csv.DictReader(huc_data)
+
+		log.info("Loading HUCs")
+		for row in csv_data:
+			try:
+				models.StreamSegment.objects.get(com_id=row["COMID"])
+				continue  # if it exists, don't load it again
+			except models.StreamSegment.DoesNotExist:
+				pass
+
+			segment = models.StreamSegment()
+			segment.com_id = row["COMID"]
+			segment.save()  # we need to save before we can set the downstreams
+
+	log.info("Loading Downstream information")
+	with open(filepath, 'r') as huc_data:  # do it again to reset the cursor
+		csv_data = csv.DictReader(huc_data)
+		for row in csv_data:
+			#log.debug("[{}]".format(row["HUC_12"]))
+			segment = models.HUC.objects.get(huc_id=row["HUC_12"])
+			if row["HU_12_DS"] not in NO_DOWNSTREAM:
+				try:
+					segment.downstream = models.HUC.objects.get(huc_id=row["HU_12_DS"])
+				except models.HUC.DoesNotExist:
+					log.error("Couldn't find downstream object {}".format(row["HU_12_DS"]))
+					raise
+			segment.save()
+
+	_build_network()
+
+
+def _build_network(force=False, starting_huc="180101051102"):
+	"""
+		Force runs *much* slower, but forces a full rebuild of the network
+	:param force:
+	:return:
+	"""
+	log.info("Building HUC network")
+	huc = models.HUC.objects.get(huc_id=starting_huc)
+	_get_upstream(huc, force=force)  # run it for everything to make sure it's complete. force makes it redo the calculation even if it already has upstream definitions
