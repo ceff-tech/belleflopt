@@ -5,3 +5,4 @@ scipy
 matplotlib
 seaborn
 comet_ml
+fiona

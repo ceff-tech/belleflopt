@@ -2,6 +2,8 @@ import os
 import csv
 import logging
 
+import fiona
+
 from eflows_optimization import settings
 from belleflopt import models
 
@@ -150,7 +152,7 @@ def _get_upstream(stream_segment, force=False):
 	if stream_segment.upstream.count() > 0 and not force:
 		return  # if this function is called when it already has upstream hucs defined, it's already complete - return immediately
 
-	upstream = models.StreamSegment.objects.filter(downstream_id=stream_segment.id)  # get all the upstream of the current HUC
+	upstream = models.StreamSegment.objects.filter(downstream_node_id=stream_segment.upstream_node_id)  # get all the upstream of the current HUC
 	for segment in upstream:  # for each upstream huc, find *its* upstream hucs and add them here too
 		_get_upstream(segment)  # this needs to run for all the upstream hucs first
 		segment.refresh_from_db()  # make sure it correctly gets the new info we just loaded for it
@@ -169,23 +171,32 @@ def _get_upstream(stream_segment, force=False):
 	stream_segment.save()
 
 
-def load_nhd(filepath=os.path.join(settings.BASE_DIR, "data", "eel_hucs.csv")):
-	with open(filepath, 'r') as huc_data:
-		csv_data = csv.DictReader(huc_data)
+def load_nhd(gdb=os.path.join(settings.BASE_DIR, "data", "NHDPlusV2", "NHDPlusV2.gdb")):
+	with fiona.open(gdb, driver="OpenFileGDB", layer="NHDFlowline_Network") as nhd_data:
+		log.info("Loading Networked NHD Stream Segments")
 
-		log.info("Loading HUCs")
-		for row in csv_data:
+		for row in nhd_data:
+			properties = row["properties"]
 			try:
-				models.StreamSegment.objects.get(com_id=row["COMID"])
+				models.StreamSegment.objects.get(com_id=properties["COMID"])
 				continue  # if it exists, don't load it again
 			except models.StreamSegment.DoesNotExist:
 				pass
 
 			segment = models.StreamSegment()
-			segment.com_id = row["COMID"]
+			segment.com_id = properties["COMID"]
+			segment.name = properties["GNIS_NAME"]
+			segment.ftype = properties["FTYPE"] if properties["FTYPE"] not in (None, "", " ") else None
+			segment.strahler_order = properties["StreamOrde"] if properties["StreamOrde"] > 0 else None
+			segment.total_upstream_area = properties["TotDASqKM"] if properties["TotDASqKM"] >= 0 else None
+			segment.routed_upstream_area = properties["DivDASqKM"] if properties["DivDASqKM"] >= 0 else None
+			segment.upstream_node_id = round(properties["FromNode"])  # using round instead of math.floor because of the case where it approximates a value like 2 as 1.99999999999 or something. Most will be 0
+			segment.downstream_node_id = round(properties["ToNode"])  # using round instead of math.floor because of the case where it approximates a value like 2 as 1.99999999999 or something. Most will be 0
 			segment.save()  # we need to save before we can set the downstreams
 
-	log.info("Loading Downstream information")
+	return
+
+	log.info("Making NHD Segment Relationships")
 	with open(filepath, 'r') as huc_data:  # do it again to reset the cursor
 		csv_data = csv.DictReader(huc_data)
 		for row in csv_data:
@@ -202,12 +213,17 @@ def load_nhd(filepath=os.path.join(settings.BASE_DIR, "data", "eel_hucs.csv")):
 	_build_network()
 
 
-def _build_network(force=False, starting_huc="180101051102"):
+def _build_network(force=False, starting_segment=None):
 	"""
 		Force runs *much* slower, but forces a full rebuild of the network
 	:param force:
 	:return:
 	"""
-	log.info("Building HUC network")
-	huc = models.HUC.objects.get(huc_id=starting_huc)
-	_get_upstream(huc, force=force)  # run it for everything to make sure it's complete. force makes it redo the calculation even if it already has upstream definitions
+	log.info("Building NHD segment network")
+	if starting_segment:
+		segment = models.StreamSegment.objects.get(com_id=starting_segment)
+		_get_upstream(segment, force=force)  # run it for everything to make sure it's complete. force makes it redo the calculation even if it already has upstream definitions
+	else:
+		# if no starting segment is provided, then run it for them all - super slow, but ensures it's done correctly. Could be optimized heavily
+		for segment in models.StreamSegment.objects.all():
+			_get_upstream(segment, force=force)

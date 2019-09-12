@@ -22,11 +22,12 @@ class StreamSegment(models.Model):
 		(COASTLINE, COASTLINE)
 	]
 
-	com_id = models.CharField(null=False, max_length=25)
+	com_id = models.CharField(null=False, max_length=25, unique=True)
 	name = models.CharField(null=True, max_length=255, blank=True)  # include the name just for our own usefulness
 	ftype = models.CharField(null=True, blank=True, max_length=32, choices=FTYPE_CHOICES)
 	strahler_order = models.PositiveSmallIntegerField(null=True, blank=True)
 	total_upstream_area = models.DecimalField(max_digits=12, decimal_places=5)
+	routed_upstream_area = models.DecimalField(max_digits=12, decimal_places=5)
 	# components
 	# species
 
@@ -44,18 +45,18 @@ class StreamSegment(models.Model):
 	def __str__(self):
 		return "Segment {}: {}".format(self.com_id, self.name)
 
-	def __init__(self):
-		"""
-			We want to define our own because we'll attach non-Django benefit classes that we don't want to persist
-			or be Django classes for performance reasons
-		"""
+	#def __init__(self):
+	#	"""
+	#		We want to define our own because we'll attach non-Django benefit classes that we don't want to persist
+	#		or be Django classes for performance reasons
+	#	"""
 
-		# We'll need some kind of item here that manages the benefit calculations of the subcomponents through time.
-		# Might need one for environmental benefit and one for economic benefit
-		# self.environmental_flows = None  # this will become a numpy series later of the daily allocated flows
-		# self.economic_flows = None  # this will become a numpy series later of the daily allocated flows
+	#	# We'll need some kind of item here that manages the benefit calculations of the subcomponents through time.
+	#	# Might need one for environmental benefit and one for economic benefit
+	#	# self.environmental_flows = None  # this will become a numpy series later of the daily allocated flows
+	#	# self.economic_flows = None  # this will become a numpy series later of the daily allocated flows
 
-		super().__init__()
+	#	super().__init__()
 
 
 class Species(models.Model):
