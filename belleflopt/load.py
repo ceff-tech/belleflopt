@@ -1,5 +1,5 @@
 import os
-import csv
+from operator import attrgetter
 import logging
 
 import fiona
@@ -152,16 +152,18 @@ def _get_upstream(stream_segment, force=False):
 	if stream_segment.upstream.count() > 0 and not force:
 		return  # if this function is called when it already has upstream hucs defined, it's already complete - return immediately
 
-	upstream = models.StreamSegment.objects.filter(downstream_node_id=stream_segment.upstream_node_id)  # get all the upstream of the current HUC
+	upstream = models.StreamSegment.objects.filter(downstream_node_id=stream_segment.upstream_node_id)  # get all the immediately upstream segments of the current segment
 	for segment in upstream:  # for each upstream huc, find *its* upstream hucs and add them here too
-		_get_upstream(segment)  # this needs to run for all the upstream hucs first
-		segment.refresh_from_db()  # make sure it correctly gets the new info we just loaded for it
+		_get_upstream(segment, force=force)  # this needs to run for all the upstream hucs first
+		segment.refresh_from_db()  # make sure it correctly gets the new info we just loaded for it in _get_upstream
 
-		if segment.upstream.count() > 0:
+		if segment.upstream.count() > 0:  # if the upstream segments has upstream segments of its own
 			for upstream_segment in segment.upstream.all():
-				if upstream_segment.com_id == segment.huc_id or upstream_segment.com_id == stream_segment.com_id or (stream_segment.downstream is not None and upstream_segment.com_id == stream_segment.downstream.com_id):
+				if upstream_segment.com_id == segment.com_id or upstream_segment.com_id == stream_segment.com_id or (stream_segment.downstream is not None and upstream_segment.com_id == stream_segment.downstream.com_id):
+					# seems like this checks that we're not creating loops? Not totally positive.
 					continue
 
+				# add all the items upstream as upstream of the current segment
 				stream_segment.upstream.add(upstream_segment)
 	# now we can fill in the current huc with the upstream hucs filled
 	# ON DEBUG - confirm that these instances will pick up upstream changes in recursive function
@@ -194,21 +196,18 @@ def load_nhd(gdb=os.path.join(settings.BASE_DIR, "data", "NHDPlusV2", "NHDPlusV2
 			segment.downstream_node_id = round(properties["ToNode"])  # using round instead of math.floor because of the case where it approximates a value like 2 as 1.99999999999 or something. Most will be 0
 			segment.save()  # we need to save before we can set the downstreams
 
-	return
+	# add the immediate networking
+	log.info("Building Segment Network")
+	for segment in models.StreamSegment.objects.all():
+		try:
+			downstream = models.StreamSegment.objects.get(upstream_node_id=segment.downstream_node_id)  # get the segment whose upstream node matches the downstream node of this segment
+		except models.StreamSegment.MultipleObjectsReturned:  # if we have a split in the river, we get multiple objects back
+			# let's figure out which one is more important
+			downstream_segments = models.StreamSegment.objects.filter(upstream_node_id=segment.downstream_node_id)
+			downstream = max(downstream_segments, key=attrgetter("routed_upstream_area"))  # get the item with the highest routed flow from this segment as the downstream segment
 
-	log.info("Making NHD Segment Relationships")
-	with open(filepath, 'r') as huc_data:  # do it again to reset the cursor
-		csv_data = csv.DictReader(huc_data)
-		for row in csv_data:
-			#log.debug("[{}]".format(row["HUC_12"]))
-			segment = models.HUC.objects.get(huc_id=row["HUC_12"])
-			if row["HU_12_DS"] not in NO_DOWNSTREAM:
-				try:
-					segment.downstream = models.HUC.objects.get(huc_id=row["HU_12_DS"])
-				except models.HUC.DoesNotExist:
-					log.error("Couldn't find downstream object {}".format(row["HU_12_DS"]))
-					raise
-			segment.save()
+		segment.downstream = downstream
+		segment.save()
 
 	_build_network()
 
