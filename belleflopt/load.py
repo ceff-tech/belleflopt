@@ -196,6 +196,10 @@ def load_nhd(gdb=os.path.join(settings.BASE_DIR, "data", "NHDPlusV2", "NHDPlusV2
 			segment.downstream_node_id = round(properties["ToNode"])  # using round instead of math.floor because of the case where it approximates a value like 2 as 1.99999999999 or something. Most will be 0
 			segment.save()  # we need to save before we can set the downstreams
 
+	load_downstream_data()
+
+
+def load_downstream_data():
 	# add the immediate networking
 	log.info("Building Segment Network")
 	for segment in models.StreamSegment.objects.all():
@@ -205,6 +209,9 @@ def load_nhd(gdb=os.path.join(settings.BASE_DIR, "data", "NHDPlusV2", "NHDPlusV2
 			# let's figure out which one is more important
 			downstream_segments = models.StreamSegment.objects.filter(upstream_node_id=segment.downstream_node_id)
 			downstream = max(downstream_segments, key=attrgetter("routed_upstream_area"))  # get the item with the highest routed flow from this segment as the downstream segment
+		except models.StreamSegment.DoesNotExist:
+			log.warning("NHD Segment with upstream node id {} does not exist to attach to {} as downstream. Skipping".format(segment.downstream_node_id, str(segment)))
+			continue
 
 		segment.downstream = downstream
 		segment.save()
