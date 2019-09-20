@@ -21,10 +21,10 @@ class BenefitItem(object):
     _q2 = None
     _q3 = None
     _q4 = None
-    _rollover_q1 = None
-    _rollover_q2 = None
-    _rollover_q3 = None
-    _rollover_q4 = None
+    _q1_rollover = None
+    _q2_rollover = None
+    _q3_rollover = None
+    _q4_rollover = None
     _margin = None
     rollover = None  # at what value should we consider it equivalent to 0?
 
@@ -83,6 +83,10 @@ class BenefitItem(object):
         if self.rollover is None:
             return
 
+        for item in ("_q2", "_q3", "_q4"):  # first, make sure the items are sequential by adding in the rollover value to anything coming in below the beginning
+            if getattr(self, item) < self._q1:
+                setattr(self, item, getattr(self, item) + self.rollover)  # this will get partially undone in the next block, but this way, we can use one set of logic no matter whether values are set manually and sequentially, or based on day of water year
+
         for item in ("_q1", "_q2", "_q3", "_q4"):
             setattr(self, "{}_rollover".format(item), getattr(self, item))
             setattr(self, item, int(getattr(self, item) % self.rollover))  # set each q to its modulo relative to 365
@@ -98,7 +102,6 @@ class BenefitItem(object):
             self._q3 = self._q4 = self.high_bound
             self._q1 = self._q2 = self.low_bound
             return
-
 
         self._q1 = self.low_bound - margin_size
         self._q2 = self.low_bound + margin_size

@@ -34,7 +34,7 @@ class TestBenefitPlots(TestCase):
         # test qs where the they should hit 1 and start descending from 1
         self.assertEqual(self.bb.single_flow_benefit(220, day_of_year=100), 1)
         self.assertEqual(self.bb.single_flow_benefit(380, day_of_year=100), 1)
-        self.plot()
+        #self.plot()
 
     def plot(self):
         self.bb.plot_flow_benefit()
@@ -72,9 +72,20 @@ class TestCrossYearComponent(TestCase):
     """
 
     def test_simple_cross_year_component(self):
-        self.assertRaises(NotImplementedError, benefit.BenefitBox,
-                          low_flow=200,
+        bb = benefit.BenefitBox(low_flow=200,
                           high_flow=400,
-                          start_day_of_water_year=300,
+                          start_day_of_water_year=200,
                           end_day_of_water_year=50,
-                          date_margin=0.2)
+                        )
+        bb.plot_annual_benefit()
+        # at flows of 180 and 420, these will always have 0 benefit
+        for day in range(0, 366):
+            self.assertEqual(bb.single_flow_benefit(420, day_of_year=day), 0)
+            self.assertEqual(bb.single_flow_benefit(180, day_of_year=day), 0)
+
+        # on these days, any flow should be 0 benefit
+        for flow in range(0, 450):
+            self.assertEqual(bb.single_flow_benefit(flow, day_of_year=70), 0)
+            self.assertEqual(bb.single_flow_benefit(flow, day_of_year=180), 0)
+
+        # self.assertEqual()
