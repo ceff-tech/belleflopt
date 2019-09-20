@@ -21,6 +21,10 @@ class BenefitItem(object):
     _q2 = None
     _q3 = None
     _q4 = None
+    _rollover_q1 = None
+    _rollover_q2 = None
+    _rollover_q3 = None
+    _rollover_q4 = None
     _margin = None
     rollover = None  # at what value should we consider it equivalent to 0?
 
@@ -178,7 +182,18 @@ class BenefitBox(object):
 
     _annual_benefit = None
 
-    def __init__(self, low_flow=None, high_flow=None, start_day_of_water_year=None, end_day_of_water_year=None, flow_margin=0.1, date_margin=0.1):
+    def __init__(self, low_flow=None,
+                 high_flow=None,
+                 start_day_of_water_year=None,
+                 end_day_of_water_year=None,
+                 flow_margin=0.1,
+                 date_margin=0.1,
+                 component_name=None,
+                 segment_id=None):
+
+        self.component_name = component_name
+        self.segment_id = segment_id
+
         self.low_flow = low_flow
         self.high_flow = high_flow
         self.start_day_of_water_year = start_day_of_water_year
@@ -272,7 +287,7 @@ class BenefitBox(object):
                    )
         plt.ylim(*self.flow_item.plot_window())
         plt.xlim(*self.date_item.plot_window())
-        plt.title("Annual benefit for {}".format(self.name))
+        plt.title("Annual benefit for {} on segment {}".format(self.component_name, self.segment_id))
         plt.ylabel("Flow/Q (CFS)")
         plt.xlabel("Day of Water Year")
         plt.colorbar()
