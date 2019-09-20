@@ -1,6 +1,8 @@
 from django.db import models
 
-from belleflopt import benefit
+from belleflopt import flow_components
+
+from eflows_optimization import settings
 
 
 class StreamSegment(models.Model):
@@ -95,7 +97,7 @@ class FlowMetric(models.Model):
 
 	component = models.ForeignKey(FlowComponent, on_delete=models.CASCADE)
 	characteristic = models.CharField(max_length=100)  # mostly a description
-	metric = models.CharField(max_length=50, unique=True)  # the CEFF short code for it
+	metric = models.CharField(max_length=50, unique=True )  # the CEFF short code for it
 	description = models.TextField()
 
 	def __repr__(self):
@@ -108,37 +110,69 @@ class FlowMetric(models.Model):
 class SegmentComponent(models.Model):
 	"""
 		Related to StreamSegment and FlowComponent via the ManyToManyField on FlowComponent. Holds
-		the data for a given flow component and segment
+		the data for a given flow component and segment.
+
+		Ramp values correspond to q1 and q4 in our benefit boxes - they're where we start ramping benefit up from
+		0 or where the ramp down hits 0. The start and end values and min/max values correspond to q2 and q3 in the boxes
+		and are where benefit hits its max
 	"""
 
 	class Meta:
 		unique_together = ['stream_segment', 'component']
 
+	start_day_ramp = models.PositiveSmallIntegerField(null=True)
 	start_day = models.PositiveSmallIntegerField(null=True)  # we need to allow these to be null because of the way we build them
 	duration = models.PositiveSmallIntegerField(null=True)  # we're working in days right now - if we were working in seconds, we might consider a DurationField instead
+	duration_ramp = models.PositiveSmallIntegerField(null=True)
 	# end_day is a property calculated from start_day and duration
+	# end_day_ramp is a property calculated from start_day and duration_ramp
 
+	minimum_magnitude_ramp = models.DecimalField(max_digits=8, decimal_places=2, null=True)
 	minimum_magnitude = models.DecimalField(max_digits=8, decimal_places=2, null=True)
 	maximum_magnitude = models.DecimalField(max_digits=8, decimal_places=2, null=True)
+	maximum_magnitude_ramp = models.DecimalField(max_digits=8, decimal_places=2, null=True)
 
 	# the stream and component this data is for
 	stream_segment = models.ForeignKey(StreamSegment, on_delete=models.DO_NOTHING)
 	component = models.ForeignKey(FlowComponent, on_delete=models.DO_NOTHING)
 
-	#def __init__(self):
-	#	"""
-	#		We want to define our own because we'll attach non-Django benefit classes that we don't want to persist
-	#		or be Django classes for performance reasons
-	#	"""
+	def build(self, builder=None):
+		"""
+			The builder should fill in the main values of this flow component based on the values of its flow metrics
+		:param builder:
+		:return:
+		"""
 
-	#	# self.benefit = benefit.BenefitBox()  # this will need to change, but is here to show the strategy - we'll probably have some kind of BenefitManager
+		if builder is None:  # if a builder isn't passed in, get the default one from flow_components.py as defined for this component type in local_settings
+			builder = getattr(flow_components, settings.COMPONENT_BUILDER_MAP[self.component.ceff_id])
+		elif not hasattr(builder, "__call__"):  # if they didn't pass in a callable, tell them that
+			raise ValueError("Must provide a callable function to `build` as the builder for this segment component.")
 
-	#	super().__init__()
+		builder(self)  # modifies this object's values, so we need to save it next
+		self.save()
+
+	def make_benefit(self, benefit_maker=None):
+		"""
+			This method is transient and must be called prior to each optimization because it builds a BenefitBox
+			object that doesn't persist in the database
+		:param benefit_maker: A function that takes this object as a parameter and returns a BenefitBox object
+				with the all values populated so that benefit can be quantified. If not provided, defaults are used
+		:return:
+		"""
+		if benefit_maker is None:  # if a maker isn't passed in, get the default one from flow_components.py as defined for this component type in local_settings
+			benefit_maker = getattr(flow_components, settings.BENEFIT_MAKER_MAP[self.component.ceff_id])
+		elif not hasattr(benefit_maker, "__call__"):  # if they didn't pass in a callable, tell them that
+			raise ValueError("Must provide a callable function to make_benefit as the benefit_maker.")
+
+		self.benefit = benefit_maker(self)  # benefit_maker just returns a benefit object, so make that the benefit attribute on this instance
 
 	@property
 	def end_day(self):
 		return self.start_day + self.duration
 
+	@property
+	def end_day_ramp(self):
+		return self.start_day + self.duration_ramp
 
 class SegmentComponentDescriptor(models.Model):
 	"""

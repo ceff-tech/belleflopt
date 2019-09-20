@@ -24,6 +24,9 @@ def load_fresh(metric_data=os.path.join(settings.BASE_DIR, "data", "base", "Sier
 	load_flow_metrics()
 	load_flow_metric_data(metric_data)
 
+	# build segment_component values
+	build_segment_components()
+
 
 def load_flow_components():
 	"""
@@ -295,3 +298,12 @@ def _load_segment_data(record):
 	descriptor.pct_90 = record["p90"]
 	# save everything
 	descriptor.save()
+
+
+def build_segment_components():
+	"""
+		Takes all of the segment components and generates their actual bounding values based on their flow metrics
+	:return:
+	"""
+	for segment_component in models.SegmentComponent.objects.all():
+		segment_component.build()

@@ -68,6 +68,21 @@ class BenefitItem(object):
         self._q3 = q3
         self._q4 = q4
 
+        self._check_rollover()
+
+    def _check_rollover(self):
+        """
+            If any values go over the rollover, then modulos them back into the frame
+        :return:
+        """
+
+        if self.rollover is None:
+            return
+
+        for item in ("_q1", "_q2", "_q3", "_q4"):
+            setattr(self, "{}_rollover".format(item), getattr(self, item))
+            setattr(self, item, int(getattr(self, item) % self.rollover))  # set each q to its modulo relative to 365
+
     def _update_qs(self):
         # otherwise, start constructing the window - find the size so we can build the ramping values.
         # see documentation for more description on how we build this
@@ -80,21 +95,31 @@ class BenefitItem(object):
             self._q1 = self._q2 = self.low_bound
             return
 
-        if self.rollover and self.high_bound < self.low_bound:  # basically, rollover only activates for dates, and we're saying "if the end date is before the start date"
-            raise NotImplementedError("Can't currently support flow components whose end Day of Year is before the start Day of Year. More work is needed to define components that cross water years.")
 
         self._q1 = self.low_bound - margin_size
         self._q2 = self.low_bound + margin_size
         self._q3 = self.high_bound - margin_size
         self._q4 = self.high_bound + margin_size
 
+        self._check_rollover()
+
     def plot_window(self):
         """
-            Provides the safe margins for plotting
+            Provides the safe margins for plotting.
         :return:
         """
-        low_value = int(self._q1 - (self._q4 - self._q1)/4)
-        high_value = int(self._q4 + (self._q4 -self._q1)/4)
+
+        if self.rollover is not None and self._q4 < self._q1:
+            return 0, self.rollover
+
+        buffer = int(abs(self._q4 - self._q1)/4)
+        min_value = min(self._q1, self._q2, self._q3, self._q4)
+        max_value = max(self._q1, self._q2, self._q3, self._q4)
+        low_value = int(max(0, min_value - buffer))
+        if self.rollover is not None:
+            high_value = min(self.rollover, max_value + buffer)
+        else:
+            high_value = int(max_value + buffer)
 
         return low_value, high_value
 
@@ -114,18 +139,30 @@ class BenefitItem(object):
 
         self.margin = margin  # set it this way, and it will recalculate q1 -> q4 only if it needs to
 
-        if self._q2 <= value <= self._q3:  # if it's well in the window, benefit is 1
+        value = value if not self.rollover or value >= self._q1 else value + self.rollover
+        if self._q4 < self._q1:
+            q1 = self._q1_rollover
+            q2 = self._q2_rollover
+            q3 = self._q3_rollover
+            q4 = self._q4_rollover
+        else:
+            q1 = self._q1
+            q2 = self._q2
+            q3 = self._q3
+            q4 = self._q4
+
+        if q2 <= value <= q3:  # if it's well in the window, benefit is 1
             # this check should be before the next one to account for always valid windows (ie, q1 == q2 and q3 == q4)
             return 1
-        if value <= self._q1 or value >= self._q4:  # if it's way outside the window, benefit is 0
+        if value <= q1 or value >= q4:  # if it's way outside the window, benefit is 0
             return 0
 
-        if self._q1 < value < self._q2:  # benefit for ramping up near low flow
-            slope = 1 / (self._q2 - self._q1)
-            return slope * (value - self._q1)
+        if q1 < value < q2:  # benefit for ramping up near low flow
+            slope = 1 / (q2 - q1)
+            return slope * (value - q1)
         else:  # only thing left is q3 < flow < q4 - benefit for ramping down at the high end of the box
-            slope = 1 / (self._q4 - self._q3)
-            return 1 - slope * (value - self._q3)
+            slope = 1 / (q4 - q3)
+            return 1 - slope * (value - q3)
 
 
 class BenefitBox(object):
@@ -174,7 +211,7 @@ class BenefitBox(object):
         flow_benefit = self.flow_item.single_value_benefit(value=flow, margin=flow_margin)
         time_benefit = self.date_item.single_value_benefit(value=day_of_year, margin=date_margin)
 
-        return flow_benefit * time_benefit
+        return float(flow_benefit) * time_benefit
 
     @property
     def annual_benefit(self):
@@ -227,16 +264,16 @@ class BenefitBox(object):
 
     def plot_annual_benefit(self):
 
-        plt.imshow(self.annual_benefit,
+        plt.imshow(numpy.swapaxes(self.annual_benefit, 0, 1),
                    cmap='viridis',
                    aspect="auto",  # allows it to fill the whole plot - by default keeps the axes on the same scale
                    vmin=0,  # force the data minimum to 0 - this should happen anyway, but let's be explicit
                    vmax=1,  # force the color scale to top out at 1, not at the data max
                    )
-        plt.xlim(*self.flow_item.plot_window())
-        plt.ylim(*self.date_item.plot_window())
+        plt.ylim(*self.flow_item.plot_window())
+        plt.xlim(*self.date_item.plot_window())
         plt.title("Annual benefit for {}".format(self.name))
-        plt.xlabel("Flow/Q (CFS)")
-        plt.ylabel("Day of Water Year")
+        plt.ylabel("Flow/Q (CFS)")
+        plt.xlabel("Day of Water Year")
         plt.colorbar()
         plt.show()
