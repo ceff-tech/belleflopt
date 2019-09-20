@@ -1,6 +1,7 @@
 import os
 from operator import attrgetter
 import logging
+import csv
 
 import fiona
 
@@ -9,7 +10,19 @@ from belleflopt import models
 
 log = logging.getLogger("belleflopt.load")
 
-NO_DOWNSTREAM = ("OCEAN", "MEXICO", "CLOSED_BASIN")
+
+def load_fresh(metric_data=os.path.join(settings.BASE_DIR, "data", "base", "Sierra_site_FFM_preds-1.csv")):
+	"""
+		Loads everything in the proper order for a fresh database
+	:return:
+	"""
+	# load the NHD, then traverse the network to add downstream data to the items
+	load_nhd()
+
+	# now load flow components and metrics, as well as data for it
+	load_flow_components()
+	load_flow_metrics()
+	load_flow_metric_data(metric_data)
 
 
 def load_flow_components():
@@ -47,11 +60,11 @@ def load_flow_metrics():
 
 	# Wet Season Base Flow metrics
 	models.FlowMetric(characteristic="Magnitude (cfs)",
-	                  metric="Wet_BFL_Mag_10^",
+	                  metric="Wet_BFL_Mag_10",
 	                  component=wet_base,
 	                  description="Magnitude of wet season baseflows (10th percentile of daily flows within that season, including peak flow events)").save()
 	models.FlowMetric(characteristic="Magnitude (cfs)",
-	                  metric="Wet_BFL_Mag_50^",
+	                  metric="Wet_BFL_Mag_50",
 	                  component=wet_base,
 	                  description="Magnitude of wet season baseflows (50th percentile of daily flows within that season, including peak flow events)").save()
 	models.FlowMetric(characteristic="Timing (date)",
@@ -59,7 +72,7 @@ def load_flow_metrics():
 	                  component=wet_base,
 	                  description="Start date of wet season").save()
 	models.FlowMetric(characteristic="Duration (days)",
-	                  metric="Wet_BFL_Dur^",
+	                  metric="Wet_BFL_Dur",
 	                  component=wet_base,
 	                  description="Wet season baseflow duration (# of days from start of wet season to start of spring season)").save()
 
@@ -78,42 +91,42 @@ def load_flow_metrics():
 	                  description="Peak-flow magnitude (50% exeedance values of annual peak flow --> 2, 5, and 10 year recurrence intervals)").save()
 
 	models.FlowMetric(characteristic="Timing (date)",
-	                  metric="Peak_Dur_10^",
+	                  metric="Peak_Dur_10",
 	                  component=wet_peak,
 	                  description="Duration of peak flows over wet season (cumulative number of days in which a given peak-flow recurrence interval is exceeded in a year).").save()
 	models.FlowMetric(characteristic="Timing (date)",
-	                  metric="Peak_Dur_20^",
+	                  metric="Peak_Dur_20",
 	                  component=wet_peak,
 	                  description="Duration of peak flows over wet season (cumulative number of days in which a given peak-flow recurrence interval is exceeded in a year).").save()
 	models.FlowMetric(characteristic="Timing (date)",
-	                  metric="Peak_Dur_50^",
+	                  metric="Peak_Dur_50",
 	                  component=wet_peak,
 	                  description="Duration of peak flows over wet season (cumulative number of days in which a given peak-flow recurrence interval is exceeded in a year).").save()
 
 	models.FlowMetric(characteristic="Duration (days)",
-	                  metric="Peak_Fre_10^",
+	                  metric="Peak_Fre_10",
 	                  component=wet_peak,
 	                  description="Frequency of peak flow events over wet season (number of times in which a given peak-flow recurrence interval is exceeded in a year).").save()
 	models.FlowMetric(characteristic="Duration (days)",
-	                  metric="Peak_Fre_20^",
+	                  metric="Peak_Fre_20",
 	                  component=wet_peak,
 	                  description="Frequency of peak flow events over wet season (number of times in which a given peak-flow recurrence interval is exceeded in a year).").save()
 	models.FlowMetric(characteristic="Duration (days)",
-	                  metric="Peak_Fre_50^",
+	                  metric="Peak_Fre_50",
 	                  component=wet_peak,
 	                  description="Frequency of peak flow events over wet season (number of times in which a given peak-flow recurrence interval is exceeded in a year).").save()
 
 	# Spring Recession metrics
 	models.FlowMetric(characteristic="Magnitude (cfs)",
-	                  metric="SP_Mag^",
+	                  metric="SP_Mag",
 	                  component=spring_recession,
 	                  description="Spring peak magnitude (daily flow on start date of spring-flow period)").save()
 	models.FlowMetric(characteristic="Timing (date)",
-	                  metric="SP_Tim^",
+	                  metric="SP_Tim",
 	                  component=spring_recession,
 	                  description="Start date of spring (date)").save()
 	models.FlowMetric(characteristic="Duration (days)",
-	                  metric="SP_Dur^",
+	                  metric="SP_Dur",
 	                  component=spring_recession,
 	                  description="Spring flow recession duration (# of days from start of spring to start of summer baseflow period)").save()
 	models.FlowMetric(characteristic="Rate of Change %",
@@ -123,29 +136,21 @@ def load_flow_metrics():
 
 	# Dry Season metrics
 	models.FlowMetric(characteristic="Magnitude (cfs)",
-	                  metric="DS_Mag_50^",
+	                  metric="DS_Mag_50",
 	                  component=dry_base,
 	                  description="Base flow magnitude (50th percentile of daily flow within summer season, calculated on an annual basis)").save()
 	models.FlowMetric(characteristic="Magnitude (cfs)",
-	                  metric="DS_Mag_90^",
+	                  metric="DS_Mag_90",
 	                  component=dry_base,
 	                  description="Base flow magnitude (90th percentile of daily flow within summer season, calculated on an annual basis)").save()
 	models.FlowMetric(characteristic="Timing (date)",
-	                  metric="DS_Tim^",
+	                  metric="DS_Tim",
 	                  component=dry_base,
 	                  description="Summer timing (start date of summer)").save()
 	models.FlowMetric(characteristic="Duration (days)",
-	                  metric="DS_Dur_WS^",
+	                  metric="DS_Dur_WS",
 	                  component=dry_base,
 	                  description="Summer flow duration (# of days from start of summer to start of wet season)").save()
-
-
-def load_flow_metric_data(path):
-	# load csv
-
-	# we could make it load the NHDSegment if it doesn't exist, but it's probably worth loading from a known dataset beforehand so we can add the downstream information and name
-
-	pass
 
 
 def _get_upstream(stream_segment, force=False):
@@ -233,3 +238,60 @@ def _build_network(force=False, starting_segment=None):
 		# if no starting segment is provided, then run it for them all - super slow, but ensures it's done correctly. Could be optimized heavily
 		for segment in models.StreamSegment.objects.all():
 			_get_upstream(segment, force=force)
+
+
+def load_flow_metric_data(csv_path):
+	"""
+		Given a CSV of modeled stream segment flow metric percentiles, loads this data. Does NOT fill in the actual
+		component values for the segments based on the loaded data though.
+	:param csv_path:
+	:return:
+	"""
+	with open(csv_path, 'r') as csv_filehandle:
+		csv_data = csv.DictReader(csv_filehandle)
+		for record in csv_data:
+			_load_segment_data(record)
+
+
+def _load_segment_data(record):
+	"""
+		Loads the data for a single segment based on a dictionary from a CSV dictreader
+	:param record:
+	:return:
+	"""
+	# look up flow metric - then look up its component and see if a segmentcomponent exists for this item
+	if record["FFM_name"] is None or record["FFM_name"] == "":
+		return
+
+	try:
+		metric = models.FlowMetric.objects.get(metric=record["FFM_name"])
+	except models.FlowMetric.DoesNotExist:
+		raise ValueError("No metric loaded for [{}]".format(record["FFM_name"]))
+
+	segment = models.StreamSegment.objects.get(com_id=record["COMID"])
+	try:  # we could probably optimize this out by rolling through once and creating all these
+		segment_component = models.SegmentComponent.objects.get(stream_segment=segment, component=metric.component)
+	except models.SegmentComponent.DoesNotExist: 	# if not, create one, if so, get it
+		segment_component = models.SegmentComponent()
+		segment_component.stream_segment = segment
+		segment_component.component = metric.component
+		segment_component.save()
+
+	# create new SegmentComponentDescriptor tied to flow metric and segmentcomponent
+	descriptor = models.SegmentComponentDescriptor()
+
+	# fill in fields
+	descriptor.flow_component = segment_component
+	descriptor.flow_metric = metric
+	descriptor.source_type = record["source"]
+	descriptor.source_name = record["source2"]
+	if "Notes" in record:
+		descriptor.notes = record["Notes"]
+
+	descriptor.pct_10 = record["p10"]
+	descriptor.pct_25 = record["p25"]
+	descriptor.pct_50 = record["p50"]
+	descriptor.pct_75 = record["p75"]
+	descriptor.pct_90 = record["p90"]
+	# save everything
+	descriptor.save()

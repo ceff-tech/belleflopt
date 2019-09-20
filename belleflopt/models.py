@@ -88,8 +88,8 @@ class FlowMetric(models.Model):
 	"""
 
 	component = models.ForeignKey(FlowComponent, on_delete=models.CASCADE)
-	characteristic = models.CharField(max_length=100)
-	metric = models.CharField(max_length=50)
+	characteristic = models.CharField(max_length=100)  # mostly a description
+	metric = models.CharField(max_length=50)  # the CEFF short code for it
 	description = models.TextField()
 
 	def __repr__(self):
@@ -105,27 +105,26 @@ class SegmentComponent(models.Model):
 		the data for a given flow component and segment
 	"""
 
-
-	start_day = models.PositiveSmallIntegerField()
-	duration = models.PositiveSmallIntegerField()  # we're working in days right now - if we were working in seconds, we might consider a DurationField instead
+	start_day = models.PositiveSmallIntegerField(null=True)  # we need to allow these to be null because of the way we build them
+	duration = models.PositiveSmallIntegerField(null=True)  # we're working in days right now - if we were working in seconds, we might consider a DurationField instead
 	# end_day is a property calculated from start_day and duration
 
-	minimum_magnitude = models.DecimalField(max_digits=8, decimal_places=2)
-	maximum_magnitude = models.DecimalField(max_digits=8, decimal_places=2)
+	minimum_magnitude = models.DecimalField(max_digits=8, decimal_places=2, null=True)
+	maximum_magnitude = models.DecimalField(max_digits=8, decimal_places=2, null=True)
 
 	# the stream and component this data is for
 	stream_segment = models.ForeignKey(StreamSegment, on_delete=models.DO_NOTHING)
 	component = models.ForeignKey(FlowComponent, on_delete=models.DO_NOTHING)
 
-	def __init__(self):
-		"""
-			We want to define our own because we'll attach non-Django benefit classes that we don't want to persist
-			or be Django classes for performance reasons
-		"""
+	#def __init__(self):
+	#	"""
+	#		We want to define our own because we'll attach non-Django benefit classes that we don't want to persist
+	#		or be Django classes for performance reasons
+	#	"""
 
-		# self.benefit = benefit.BenefitBox()  # this will need to change, but is here to show the strategy - we'll probably have some kind of BenefitManager
+	#	# self.benefit = benefit.BenefitBox()  # this will need to change, but is here to show the strategy - we'll probably have some kind of BenefitManager
 
-		super().__init__()
+	#	super().__init__()
 
 	@property
 	def end_day(self):
@@ -139,7 +138,7 @@ class SegmentComponentDescriptor(models.Model):
 	"""
 
 	flow_component = models.ForeignKey(SegmentComponent, on_delete=models.DO_NOTHING)
-	ceff_code = models.CharField(max_length=30)  # the code for this component descriptor
+	flow_metric = models.ForeignKey(FlowMetric, on_delete=models.DO_NOTHING)
 	source_type = models.CharField(max_length=30, null=True)  # source in spreadsheet
 	source_name = models.CharField(max_length=30, null=True)  # source2
 	notes = models.TextField(null=True, blank=True)
