@@ -58,6 +58,16 @@ class BenefitItem(object):
             if self._low_bound is not None and self._high_bound is not None:
                 self._update_qs()
 
+    def set_values(self, q1, q2, q3, q4):
+        """
+            Lets you explicitly set the q values if there is logic elsewhere that defines them
+        :return:
+        """
+        self._q1 = q1
+        self._q2 = q2
+        self._q3 = q3
+        self._q4 = q4
+
     def _update_qs(self):
         # otherwise, start constructing the window - find the size so we can build the ramping values.
         # see documentation for more description on how we build this
@@ -131,7 +141,7 @@ class BenefitBox(object):
 
     _annual_benefit = None
 
-    def __init__(self, low_flow, high_flow, start_day_of_water_year, end_day_of_water_year, flow_margin=0.1, date_margin=0.1):
+    def __init__(self, low_flow=None, high_flow=None, start_day_of_water_year=None, end_day_of_water_year=None, flow_margin=0.1, date_margin=0.1):
         self.low_flow = low_flow
         self.high_flow = high_flow
         self.start_day_of_water_year = start_day_of_water_year

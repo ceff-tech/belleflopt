@@ -78,8 +78,14 @@ class FlowComponent(models.Model):
 		and contains the actual data for a segment
 	"""
 	name = models.CharField(null=False, max_length=255, unique=True)
-	# ceff_id = models.CharField(null=False, max_length=100)  # the ID used in CEFF for this component
+	ceff_id = models.CharField(null=False, max_length=10)  # the ID used in CEFF for this component
 	segments = models.ManyToManyField(StreamSegment, related_name="components", through="SegmentComponent")
+
+	def __repr__(self):
+		return self.name
+
+	def __str__(self):
+		return self.name
 
 
 class FlowMetric(models.Model):
@@ -89,7 +95,7 @@ class FlowMetric(models.Model):
 
 	component = models.ForeignKey(FlowComponent, on_delete=models.CASCADE)
 	characteristic = models.CharField(max_length=100)  # mostly a description
-	metric = models.CharField(max_length=50)  # the CEFF short code for it
+	metric = models.CharField(max_length=50, unique=True)  # the CEFF short code for it
 	description = models.TextField()
 
 	def __repr__(self):
@@ -104,6 +110,9 @@ class SegmentComponent(models.Model):
 		Related to StreamSegment and FlowComponent via the ManyToManyField on FlowComponent. Holds
 		the data for a given flow component and segment
 	"""
+
+	class Meta:
+		unique_together = ['stream_segment', 'component']
 
 	start_day = models.PositiveSmallIntegerField(null=True)  # we need to allow these to be null because of the way we build them
 	duration = models.PositiveSmallIntegerField(null=True)  # we're working in days right now - if we were working in seconds, we might consider a DurationField instead
@@ -137,8 +146,11 @@ class SegmentComponentDescriptor(models.Model):
 		this. I think these are equivalent to the functional flow metrics (FFMs).
 	"""
 
-	flow_component = models.ForeignKey(SegmentComponent, on_delete=models.DO_NOTHING)
-	flow_metric = models.ForeignKey(FlowMetric, on_delete=models.DO_NOTHING)
+	class Meta:
+		unique_together = ['flow_component', 'flow_metric']
+
+	flow_component = models.ForeignKey(SegmentComponent, on_delete=models.DO_NOTHING, related_name="metrics")
+	flow_metric = models.ForeignKey(FlowMetric, on_delete=models.DO_NOTHING, related_name="descriptors")
 	source_type = models.CharField(max_length=30, null=True)  # source in spreadsheet
 	source_name = models.CharField(max_length=30, null=True)  # source2
 	notes = models.TextField(null=True, blank=True)

@@ -30,11 +30,11 @@ def load_flow_components():
 		We're only doing 5 flow components, so we can load them manually
 	:return:
 	"""
-	models.FlowComponent(name="Fall pulse flow").save()
-	models.FlowComponent(name="Wet-season base flow").save()
-	models.FlowComponent(name="Peak flow").save()
-	models.FlowComponent(name="Spring recession flow").save()
-	models.FlowComponent(name="Dry-season base flow").save()
+	models.FlowComponent(name="Fall pulse flow", ceff_id="FA").save()
+	models.FlowComponent(name="Wet-season base flow", ceff_id="Wet_BFL").save()
+	models.FlowComponent(name="Peak flow", ceff_id="Peak").save()
+	models.FlowComponent(name="Spring recession flow", ceff_id="SP").save()
+	models.FlowComponent(name="Dry-season base flow", ceff_id="DS").save()
 
 
 def load_flow_metrics():
