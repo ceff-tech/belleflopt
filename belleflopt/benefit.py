@@ -95,7 +95,7 @@ class BenefitItem(object):
         # otherwise, start constructing the window - find the size so we can build the ramping values.
         # see documentation for more description on how we build this
         window_size = abs(self.high_bound - self.low_bound)
-        margin_size = int(self.margin * window_size)
+        margin_size = int(self.margin * window_size)  # this coerces to int so that we can attach to whole flows and days - very small error introduced, but only if we don't manually define qs? May be able to coerce to float instead? It might be a Decimal
 
         if self.rollover and self.high_bound == self.rollover and self.low_bound == 0:
             # if the upper bound is the same as the limit (the rollover value), and the low bound is 0, then make the edges square, because the benefit is always 1
