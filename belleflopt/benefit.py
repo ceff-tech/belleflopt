@@ -94,7 +94,7 @@ class BenefitItem(object):
     def _update_qs(self):
         # otherwise, start constructing the window - find the size so we can build the ramping values.
         # see documentation for more description on how we build this
-        window_size = self.high_bound - self.low_bound
+        window_size = abs(self.high_bound - self.low_bound)
         margin_size = int(self.margin * window_size)
 
         if self.rollover and self.high_bound == self.rollover and self.low_bound == 0:

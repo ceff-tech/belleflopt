@@ -76,8 +76,9 @@ class TestCrossYearComponent(TestCase):
                           high_flow=400,
                           start_day_of_water_year=200,
                           end_day_of_water_year=50,
+                            component_name="test crossyear component"
                         )
-        bb.plot_annual_benefit()
+        # bb.plot_annual_benefit()  - was just for visualizing the box we set up for testing
         # at flows of 180 and 420, these will always have 0 benefit
         for day in range(0, 366):
             self.assertEqual(bb.single_flow_benefit(420, day_of_year=day), 0)
@@ -88,4 +89,19 @@ class TestCrossYearComponent(TestCase):
             self.assertEqual(bb.single_flow_benefit(flow, day_of_year=70), 0)
             self.assertEqual(bb.single_flow_benefit(flow, day_of_year=180), 0)
 
+        self.assertEqual(bb.single_flow_benefit(300, day_of_year=25), 1)  # a random set of values within the bulk of
+        self.assertEqual(bb.single_flow_benefit(350, day_of_year=250), 1)  # the area of full benefit
+        self.assertEqual(bb.single_flow_benefit(375, day_of_year=300), 1)
+        self.assertEqual(bb.single_flow_benefit(250, day_of_year=365), 1)
+
+        edge_value = bb.single_flow_benefit(250, day_of_year=200)  # get test values in the fuzzy margins
+        edge_value2 = bb.single_flow_benefit(200, day_of_year=200)
+        edge_value3 = bb.single_flow_benefit(200, day_of_year=300)
+
+        self.assertLess(edge_value, 1)  # fuzzy left edge
+        self.assertLess(edge_value2, 1)  # fuzzy corner
+        self.assertLess(edge_value3, 1)  # fuzzy bottom edge
+        self.assertGreater(edge_value, 0)
+        self.assertGreater(edge_value2, 0)
+        self.assertGreater(edge_value3, 0)
         # self.assertEqual()
