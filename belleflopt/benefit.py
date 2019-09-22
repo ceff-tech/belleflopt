@@ -215,7 +215,10 @@ class BenefitBox(object):
 
     @property
     def name(self):
-        return "Flow Component - Flow: ({}, {}), DOY: ({}, {})".format(self.low_flow,
+        if self.component_name and self.segment_id:
+            return "{} on segment {}".format(self.component_name, self.segment_id)
+        else:
+            return "Flow Component - Flow: ({}, {}), DOY: ({}, {})".format(self.low_flow,
                                                             self.high_flow,
                                                             self.start_day_of_water_year,
                                                             self.end_day_of_water_year,)
@@ -230,6 +233,16 @@ class BenefitBox(object):
         time_benefit = self.date_item.single_value_benefit(value=day_of_year, margin=date_margin)
 
         return float(flow_benefit) * time_benefit
+
+    def set_flow_values(self, *values):
+        self.flow_item.set_values(*values)
+        self.low_flow = values[1] - (values[1] - values[0]) / 2
+        self.high_flow = values[3] - (values[3] - values[2]) / 2
+
+    def set_day_values(self, *values):
+        self.date_item.set_values(*values)
+        self.start_day_of_water_year = values[1] - abs((values[1] - values[0]) / 2)
+        self.end_day_of_water_year = values[3] - abs((values[3] - values[2]) / 2)
 
     @property
     def annual_benefit(self):
@@ -262,8 +275,8 @@ class BenefitBox(object):
         plt.ylabel("Benefit")
 
         # add vertical lines for the low and high benefit flows
-        plt.axvline(self.low_flow, 0, 1, dashes=(5, 8))
-        plt.axvline(self.high_flow, 0, 1, dashes=(5, 8))
+        #plt.axvline(self.low_flow, 0, 1, dashes=(5, 8))
+        #plt.axvline(self.high_flow, 0, 1, dashes=(5, 8))
 
         # add points for the qs
         q2_benefit = self.single_flow_benefit(self.flow_item._q2, day_of_year=day_of_year)

@@ -9,12 +9,12 @@ def spring_recession_benefit_maker(segment_component):
 def summer_base_flow_benefit_maker(segment_component):
 		b = benefit.BenefitBox(component_name=segment_component.component.name,
 		                       segment_id=segment_component.stream_segment.com_id)  # make a benefit box and set the magnitude q values immediately
-		b.flow_item.set_values(segment_component.minimum_magnitude_ramp,
+		b.set_flow_values(segment_component.minimum_magnitude_ramp,
 		                                  segment_component.minimum_magnitude,
 		                                  segment_component.maximum_magnitude,
 		                                  segment_component.maximum_magnitude_ramp
 		                                  )
-		b.date_item.set_values(segment_component.start_day_ramp,
+		b.set_day_values(segment_component.start_day_ramp,
 		                                  segment_component.start_day,
 		                                  segment_component.end_day,
 		                                  segment_component.end_day_ramp,
