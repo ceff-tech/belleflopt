@@ -235,18 +235,52 @@ class BenefitBox(object):
         return float(flow_benefit) * time_benefit
 
     def set_flow_values(self, *values):
+        """
+            Provides an interface to manually set the q values for the flow item. Provide four values (not as an iterable,
+            as individual items) and this sets the flow q values, as well as setting the low/high bounds on this item
+            as they would have been set if this item had been manually computed. The margin will still be inaccurate,
+            but low and high will be halfway in-between the set values. Order of provided values should be q1, q2, q3, q4
+        :param values: 4 individual flow values for q1, q2, q3, and q4
+        :return: None
+        """
         self.flow_item.set_values(*values)
         self.low_flow = values[1] - (values[1] - values[0]) / 2
         self.high_flow = values[3] - (values[3] - values[2]) / 2
+        self._annual_benefit = None  # reset annual benefit to nothing since we just changed all the parameters
 
     def set_day_values(self, *values):
+        """
+            Provides an interface to manually set the q values for the day of year item. Provide four values (not as an iterable,
+            as individual items) and this sets the day q values, as well as setting the low/high bounds on this item
+            as they would have been set if this item had been manually computed. The margin will still be inaccurate,
+            but low and high will be halfway in-between the set values. Order of provided values should be q1, q2, q3, q4
+        :param values: 4 individual day of year values for q1, q2, q3, and q4
+        :return: None
+        """
         self.date_item.set_values(*values)
         self.start_day_of_water_year = values[1] - abs((values[1] - values[0]) / 2)
         self.end_day_of_water_year = values[3] - abs((values[3] - values[2]) / 2)
+        self._annual_benefit = None  # reset annual benefit to nothing since we just changed all the parameters
+
+    def recalculate_annual_benefit(self):
+        """
+            Forces the annual benefit surface to be rebuilt, even if it would otherwise try to use the cached copy.
+        :return:
+        """
+        self.annual_benefit(force=True)
 
     @property
-    def annual_benefit(self):
-        if self._annual_benefit is not None:
+    def annual_benefit(self, force=False):
+        """
+            Computes an annual benefit surface, but only if one hasn't been set already. It avoids recalculating it
+            because it's time intensive, unless force is True. If setting q values using appropriate methods (set_flow_values
+            and set_day_values) then this surface is automatically recalculated when needed, but if other paramters
+            are changed, then you must call recalculate_annual_benefit to force a recalculation.
+            :param force: when True, automatically recalculates the annual benefit surface. When False, uses existing
+                calculating if one exists. Default is False
+        :return:
+        """
+        if self._annual_benefit is not None or force:
             return self._annual_benefit
 
         date_max = self.date_item.plot_window()[1]
