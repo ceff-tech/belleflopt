@@ -35,12 +35,13 @@ python manage.py shell
 In the shell, run the following to load species, watershed, and flow data and set up the
 hydrologic network
 ```python
-from belleflopt import support
-support.reset()
+from belleflopt import load
+load.load_fresh()
 ```
 
 If you want to actually run optimization now, you can then:
 ```python
+from belleflopt import support
 support.run_optimize()
 ```
 
@@ -72,26 +73,29 @@ arguments - tweak the code if you want it to be different) or use Platypus' Expe
 Note that currently, due to the way the model is constructed, you can't use parallel
 expirementers - the database will lock and prevent multiple accesses.
 
-## Plugins
-The codebase is being designed to utilize a plugin infrastructure that encompasses as much as
+## Extension Points
+The codebase is being designed to be a reusable package that encompasses as much as
 possible, to allow for this code to be a research platform that encourages exploration of outcomes
-as opposed to something that runs once and gives an answer. Plugins live in the `eflows.plugins` package
-and can be a package or a single module. If you create a package, the entry point must live in the `__init__.py`
-file so it can be found.
+as opposed to something that runs once and gives an answer. To extend or change behavior, there
+are two major locations as of this writing:
+1. Changing the settings. In `local_settings.py`, defaults are set that determine how belleflopt
+loads and processes data for flow metrics and components. Changing these values would alter
+results and can be used to explore different scenarios, especially when paired with input
+data for different objectives or geographies.
+2. Providing different functions for base benefit calculation and loading. Belleflopt establishes
+surfaces that it uses to determine the benefit of a given flow of water on a given date
+for a given segment. It handles this with `BenefitBox` objects located in `benefit.py`, but you
+can create your own benefit class. These classes are paired with a function (located in
+`flow_components.py` that attaches them to belleflopt's core data structures. When initializing
+belleflopt's components, you can build a different function that extracts values from belleflopt's
+data structures and builds your own `BenefitBox`-like class. That class must have a method
+`single_flow_benefit(self, flow, day_of_year)` that returns the base benefit of that flow on that
+day of the water year for that stream segment - at least in order to run the model. For full
+compatibility, copying the other interfaces of `BenefitBox` is advised.
 
-Plugins are broadly split into two subfolders: `economics` and `environment` - each being
-used for objective functions that evaluate economic and environmental benefits of specific flows.
-
-In the future, it is possible that results and visualization may be included in plugins as well.
-
-To access a plugin from code, use `eflows.plugins.return_plugin_function`. For example, to get
-the entry point `environmental_benefit` from the `base` plugin in the `environment` folder, use
-the following:
-```python
-    from eflows import plugins
-    
-    environmental_benefit = plugins.return_plugin_function(package="eflows.plugins.environment.base", entry_point="environmental_benefit")
-```
+This "base benefit" is then used in conjunction with present species (those who stand to benefit
+from it) in establishing the total benefit of a given flow/day/segment. More documentation
+on extension points will be forthcoming as the package is fleshed out further.
 
 ## Model Runs
 Model runs are handled in unit tests. While the main `eflows.tests` package holds standard
