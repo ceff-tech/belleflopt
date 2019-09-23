@@ -313,3 +313,20 @@ def run_optimize_many():
 		for pop in popsize:
 			for seed in seeds:
 				run_optimize(algorithm, NFE=nfe, popsize=pop, seed=seed)
+
+
+def plot_segment_component_annual_benefit(segment_id, component_id):
+	"""
+		A helper function that is itself its own form of documentation of setup process.
+		Retrieves the flow component data for a segment and plots the annual benefit
+		surface.
+
+	:param segment_id: An NHDPlus COMID
+	:param component_id: A CEFF Flow Component ID
+	:return: plots object directly, no return value
+	"""
+	segment_component = models.SegmentComponent.objects.get(component__ceff_id=component_id,
+	                                                        stream_segment__com_id=segment_id)
+
+	segment_component.make_benefit()
+	segment_component.benefit.plot_annual_benefit()
