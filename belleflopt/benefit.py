@@ -290,7 +290,15 @@ class BenefitBox(object):
         self._annual_benefit = benefit_function(flows, days)
         return self._annual_benefit
 
-    def plot_flow_benefit(self, min_flow=None, max_flow=None, day_of_year=100):
+    def plot_flow_benefit(self, min_flow=None, max_flow=None, day_of_year=100, screen=True):
+        """
+
+        :param min_flow:
+        :param max_flow:
+        :param day_of_year:
+        :param screen: When True, displays the plot on the screen
+        :return: matplotlib.pyplot plot object
+        """
 
         # if they don't provide a min or max flow to plot, then set the values so that the box would be centered
         # with half the range on each side as 0s
@@ -325,11 +333,14 @@ class BenefitBox(object):
 
         plt.ylim(-0.05, 1.05)
         plt.title("Benefit for {} on day {}".format(self.name, day_of_year))
-        plt.show()
+        if screen:
+            plt.show()
 
-    def plot_annual_benefit(self):
+        return plot
 
-        plt.imshow(numpy.swapaxes(self.annual_benefit, 0, 1),
+    def plot_annual_benefit(self, screen=True):
+
+        plot = plt.imshow(numpy.swapaxes(self.annual_benefit, 0, 1),
                    cmap='viridis',
                    aspect="auto",  # allows it to fill the whole plot - by default keeps the axes on the same scale
                    vmin=0,  # force the data minimum to 0 - this should happen anyway, but let's be explicit
@@ -341,4 +352,7 @@ class BenefitBox(object):
         plt.ylabel("Flow/Q (CFS)")
         plt.xlabel("Day of Water Year")
         plt.colorbar()
-        plt.show()
+        if screen:
+            plt.show()
+
+        return plot

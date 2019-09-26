@@ -174,6 +174,7 @@ class SegmentComponent(models.Model):
 	def end_day_ramp(self):
 		return self.start_day + self.duration_ramp
 
+
 class SegmentComponentDescriptor(models.Model):
 	"""
 		Raw data for each flow component spec - straight out of the spreadsheet. SegmentComponents will be built from

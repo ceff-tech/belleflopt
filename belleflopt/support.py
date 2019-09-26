@@ -315,7 +315,33 @@ def run_optimize_many():
 				run_optimize(algorithm, NFE=nfe, popsize=pop, seed=seed)
 
 
-def plot_segment_component_annual_benefit(segment_id, component_id):
+def _segment_plot_helper(function, segment_id, component_id, screen, output_path, **kwargs):
+	"""
+		A helper function handle plotting
+	:param function: a method on a benefit object that handles plotting and takes a paramter "screen" and "output_path"
+	                along with any other parmas
+	:param segment_id: An NHDPlus COMID
+	:param component_id: A CEFF Flow Component ID
+	:param screen: when True, displays the plot on the screen
+	:param output_path: When specified, saves the plot to this location
+	:param kwargs: Any other keyword arguments to pass to the benefit object plotting function
+	:return: None - plots and/or saves figure as specified
+	"""
+	segment_component = models.SegmentComponent.objects.get(component__ceff_id=component_id,
+	                                                        stream_segment__com_id=segment_id)
+	segment_component.make_benefit()
+
+	function_to_call = getattr(segment_component.benefit, function)
+	plot = function_to_call(screen=screen, **kwargs)
+
+	if output_path is not None:
+		plot = plot.get_figure()  # for newer seaborn, we have to get the figure from the subplot
+		plot.savefig(output_path)
+
+	plt.close()
+
+
+def plot_segment_component_annual_benefit(segment_id, component_id, screen=True, output_path=None):
 	"""
 		A helper function that is itself its own form of documentation of setup process.
 		Retrieves the flow component data for a segment and plots the annual benefit
@@ -323,10 +349,35 @@ def plot_segment_component_annual_benefit(segment_id, component_id):
 
 	:param segment_id: An NHDPlus COMID
 	:param component_id: A CEFF Flow Component ID
-	:return: plots object directly, no return value
+	:param screen: when True, displays the plot on the screen
+	:param output_path: When specified, saves the plot to this location
+	:return: None - plots to screen and/or file as specified and closes plot
 	"""
-	segment_component = models.SegmentComponent.objects.get(component__ceff_id=component_id,
-	                                                        stream_segment__com_id=segment_id)
 
-	segment_component.make_benefit()
-	segment_component.benefit.plot_annual_benefit()
+	_segment_plot_helper(function="plot_annual_benefit",
+	                            segment_id=segment_id,
+	                            component_id=component_id,
+	                            screen=screen,
+	                            output_path=output_path)
+
+
+def plot_segment_component_day_benefit(segment_id, component_id, day=100, screen=True, output_path=None):
+	"""
+		A helper function that is itself its own form of documentation of setup process.
+		Retrieves the flow component data for a segment and plots the flow benefit for a single
+		day of the water year
+
+	:param segment_id: An NHDPlus COMID
+	:param component_id: A CEFF Flow Component ID
+	:param day: the day of year to make the plot for
+	:param screen: when True, displays the plot on the screen
+	:param output_path: When specified, saves the plot to this location
+	:return: None - plots to screen and/or file as specified and closes plot
+	"""
+
+	_segment_plot_helper(function="plot_flow_benefit",
+	                            segment_id=segment_id,
+	                            component_id=component_id,
+	                            screen=screen,
+	                            output_path=output_path,
+								day_of_year=day)
