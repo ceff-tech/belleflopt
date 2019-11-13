@@ -3,6 +3,9 @@ import functools
 import numpy
 from matplotlib import pyplot as plt
 import seaborn
+from matplotlib.colors import ListedColormap
+
+from eflows_optimization.settings import DEFAULT_COLORRAMP
 
 
 class BenefitItem(object):
@@ -27,6 +30,8 @@ class BenefitItem(object):
     _q4_rollover = None
     _margin = None
     rollover = None  # at what value should we consider it equivalent to 0?
+
+    max_benefit = 1  # in most cases, this will be true, but it might get reconfigured for peak flows
 
     # using @properties for low_flow, high_flow, and margin so that we don't have to calculate q1->q4 every time we
     # check the benefit of something using this box. We can calculate those only on update of these parameters, then
@@ -160,16 +165,16 @@ class BenefitItem(object):
 
         if q2 <= value <= q3:  # if it's well in the window, benefit is 1
             # this check should be before the next one to account for always valid windows (ie, q1 == q2 and q3 == q4)
-            return 1
+            return self.max_benefit
         if value <= q1 or value >= q4:  # if it's way outside the window, benefit is 0
             return 0
 
         if q1 < value < q2:  # benefit for ramping up near low flow
-            slope = 1 / (q2 - q1)
+            slope = self.max_benefit / (q2 - q1)
             return slope * (value - q1)
         else:  # only thing left is q3 < flow < q4 - benefit for ramping down at the high end of the box
-            slope = 1 / (q4 - q3)
-            return 1 - slope * (value - q3)
+            slope = self.max_benefit / (q4 - q3)
+            return self.max_benefit - slope * (value - q3)
 
 
 class BenefitBox(object):
@@ -212,6 +217,9 @@ class BenefitBox(object):
         self.date_item.high_bound = self.end_day_of_water_year
         self.date_item.rollover = 365  # tell it that the last day of the year is equal to the first
         self.date_item.margin = date_margin
+
+        # make the vectorized function we'll use for time series
+        self.vectorized_single_day_flow_benefit = numpy.vectorize(self.single_flow_benefit, otypes=[float])
 
     @property
     def name(self):
@@ -285,10 +293,27 @@ class BenefitBox(object):
 
         date_max = self.date_item.plot_window()[1]
         flow_max = self.flow_item.plot_window()[1]
-        benefit_function = numpy.vectorize(self.single_flow_benefit, otypes=[float])
         days, flows = numpy.indices((date_max, flow_max))  # get the indices to pass through the vectorized function as flows and days
-        self._annual_benefit = benefit_function(flows, days)
+        self._annual_benefit = self.vectorized_single_day_flow_benefit(flows, days)
         return self._annual_benefit
+
+    def get_benefit_for_timeseries(self, timeseries):
+        """
+            Supplies the full benefit *just for this component* across a year given a day of water year-based timeseries
+            of flows (so index 0 == October 1, index 1 == October 2, ... index 364 == September 30)
+
+            Performance-wise, this still requires us to do computations for days that aren't part of this component - if
+            we can figure out a way to just fill zeroes, then replace with values only for the days we need, could be
+            faster.
+
+            This is also just a *default* implementation - it works for base flows, but for peak flows, each day
+            will depend on the previous day, so we'd probably generate the vectorized benefit, then adjust values
+            based on peak flow component adjustment parameters
+        :param timeseries:
+        :return:
+        """
+        days = range(1, 366)  # index 0 == day 1 of water year, index 364 == day 365 of water year
+        return self.vectorized_single_day_flow_benefit(timeseries, days)
 
     def plot_flow_benefit(self, min_flow=None, max_flow=None, day_of_year=100, screen=True):
         """
@@ -338,10 +363,10 @@ class BenefitBox(object):
 
         return plot
 
-    def plot_annual_benefit(self, screen=True):
+    def plot_annual_benefit(self, screen=True, palette=ListedColormap(seaborn.color_palette(DEFAULT_COLORRAMP))):
 
         plot = plt.imshow(numpy.swapaxes(self.annual_benefit, 0, 1),
-                   cmap='viridis',
+                   cmap=palette,
                    aspect="auto",  # allows it to fill the whole plot - by default keeps the axes on the same scale
                    vmin=0,  # force the data minimum to 0 - this should happen anyway, but let's be explicit
                    vmax=1,  # force the color scale to top out at 1, not at the data max
@@ -356,3 +381,105 @@ class BenefitBox(object):
             plt.show()
 
         return plot
+
+
+class PeakBenefitBox(BenefitBox):
+    """
+        Handles benefit for peak flows.
+
+        Needs the peak magnitude and timing, but also two duration metrics. First duration is the window
+        duration. Second duration is for the duration of any specific event.
+
+
+    """
+    peak_interevent_decay_factor = None  # how rapidly should the benefit *within* a peak event decay?
+    max_benefit = None  # how much benefit should the first day of the first peak event of this kind generate? This
+                        # might be different for each kind of peak event (winter vs fall) - this value should be > 1
+                        # to incentivize entering the peak flow
+
+    peak_duration = None
+    peak_intraevent_reduction_factor = None  # will be 1/peak duration, but this way we only calculate it once
+
+    def setup_peak_flows(self, interevent_decay, median_duration, max_benefit):
+        self.max_benefit = max_benefit
+        self.peak_interevent_decay_factor = interevent_decay
+        self.peak_duration = median_duration
+        self.peak_intraevent_reduction_factor = 1 / float(self.peak_duration)
+
+    def get_peak_benefit(self, base_benefit, day_of_current_event, max_benefit):
+        """
+                Time window should be based on wet season baseflow timing and duration
+
+                Calculation of peak interevent decay factor should be based on Peak_Fre metric, which describes how often peak
+                events should occur.
+
+                Calculation of peak intraevent decay factor should be based on Peak_Dur metric. Simplest case would be that
+                we drop it linearly by (1/median_Peak_Dur * Max_Benefit) per day. If Peak_Dur was 4 and max benefit was 10 and
+                this is the first event of the season, then we get the following benefit behavior:
+                Day 0) 10  <- This is the start of the sequence, so it's 10 at the beginning of the peak flow, at moment 0
+                Day 1) 7.5
+                Day 2) 5
+                Day 3) 2.5
+                Day 4) 0 <- How do we handle this? We don't want to go to zero - benefit is greater than 0, but should be less
+                            than 1 to incentivize a return to baseflow
+
+                So, we could instead do an exponential decay of the form
+                y = max_benefit^(-(1/median_Peak_Dur)*(x-median_Peak_Dur)) + min_benefit
+                So, in the same scenario, if we define a minimum benefit of 0.5 where it asymptotes out, we get an equation like
+                y = 10^(-0.25(x-4)) + 0.5, which yields results like:
+                Day 0) 10.5
+                Day 1) ~6.1
+                Day 2) ~ 3.66
+                Day 3) ~ 2.28
+                Day 4) ~ 1.5
+                Day 5) ~ 1
+                Day 6) ~ 0.8
+
+                But maybe we don't need a minimum benefit here - it distorts an otherwise great curve above, and because it's
+                an exponential decay, we won't actually hit 0 or get close to it for a while. Maybe we should just do
+                y = 10^(-0.25(x-4)), which yields:
+                Day 0) 10
+                Day 1) ~5.6
+                Day 2) ~ 3.16
+                Day 3) ~ 1.78
+                Day 4) 1
+                Day 5) ~ 0.56
+                Day 6) ~ 0.32
+
+                I like this approach the most - it approaches 0 around day 10, but for something that's supposed to be a
+                4 day event, 10 days might not provide much benefit. It doesnt' really account for the uncertainty in the
+                statistical modeling though - the model might try to force things back to baseflow after exactly the median
+                value. But that might be OK for our purposes.
+
+                Then, we can still reduce consecutive events benefit linearly from max, and just change the base of the
+                exponential function. If the base reaches 1 or less, then we just assign a fixed value of less than 1 because
+                this function becomes a straight line at 1.
+            """
+        return base_benefit * (max_benefit ** (self.peak_intraevent_reduction_factor * (day_of_current_event - self.peak_duration)))
+
+    def get_benefit_for_timeseries(self, timeseries):
+        """
+            Supplies the full benefit *just for this component* across a year given a day of water year-based timeseries
+            of flows (so index 0 == October 1, index 1 == October 2, ... index 364 == September 30)
+
+            This version overrides the parent implementation of this function - we won't call the parent - we don't need
+            to - this should return the benefit by day on its own.
+        :param timeseries:
+        :return:
+        """
+        days = range(1, 366)  # index 0 == day 1 of water year, index 364 == day 365 of water year
+        base_daily_benefit = self.vectorized_single_day_flow_benefit(timeseries, days)
+
+        days_in_peak = 0  # how many days long is the current peak_flow event
+        current_max_benefit = self.max_benefit  # what's the max benefit available to a new peak flow event?
+
+        for day, benefit in enumerate(base_daily_benefit):
+            if benefit > 0:  # basically, we're in the peak box
+                base_daily_benefit[day] = self.get_peak_benefit(benefit, days_in_peak, current_max_benefit)
+                days_in_peak += 1  # add 1 to the current event
+            else:  # benefit = 0
+                if days_in_peak > 0:  # if we were in a peak event, we need to reduce max benefit for the next event
+                    current_max_benefit -= self.peak_interevent_decay_factor
+                days_in_peak = 0  # reset
+
+        return base_daily_benefit  # now contains peak benefits, not base benefit
