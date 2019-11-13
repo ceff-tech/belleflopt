@@ -1,6 +1,9 @@
+from django.core.exceptions import ObjectDoesNotExist
+
 from eflows_optimization import local_settings
 from belleflopt import benefit
 
+# DO NOT IMPORT belleflopt.models - it would create a circular import
 
 def _general_benefit_maker(segment_component):
 	"""
@@ -59,10 +62,13 @@ def _generic_builder(segment_component,
 		or recession rates.
 	:param segment_component:
 	"""
-	# Get the flow metric values specific to this segment, that match what we need as defined in local_settings
-	magnitude_definition = segment_component.metrics.get(flow_metric__metric=magnitude_metric)
-	start_timing_definition = segment_component.metrics.get(flow_metric__metric=start_timing_metric)
-	end_duration_definition = segment_component.metrics.get(flow_metric__metric=duration_metric)
+	try:
+		# Get the flow metric values specific to this segment, that match what we need as defined in local_settings
+		magnitude_definition = segment_component.descriptors.get(flow_metric__metric=magnitude_metric)
+		start_timing_definition = segment_component.descriptors.get(flow_metric__metric=start_timing_metric)
+		end_duration_definition = segment_component.descriptors.get(flow_metric__metric=duration_metric)
+	except ObjectDoesNotExist:  # if no metrics are assigned, we get ObjectDoesNotExist, so just return
+		return
 
 	segment_component.minimum_magnitude_ramp = magnitude_definition.pct_10
 	segment_component.minimum_magnitude = magnitude_definition.pct_25

@@ -3,6 +3,7 @@ from operator import attrgetter
 import logging
 import csv
 
+import django
 import fiona
 
 from eflows_optimization import settings
@@ -11,18 +12,31 @@ from belleflopt import models
 log = logging.getLogger("belleflopt.load")
 
 
-def load_fresh(metric_data=os.path.join(settings.BASE_DIR, "data", "base", "Sierra_site_FFM_preds-1.csv")):
+def load_fresh(import_nhd=True, clear_flow_data=True):
 	"""
 		Loads everything in the proper order for a fresh database
+		:param import_nhd: when True, loads NHD data. It will not remove existing data first - it assumes you
+							have an empty database or have removed the data manually
+		:param clear_flow_data: when True, deletes all flow components (defs), metrics (defs),
+		                    segment components, and component descriptors before loading flow data. When False,
+		                    will load those on top of any existing data for those models.
 	:return:
 	"""
 	# load the NHD, then traverse the network to add downstream data to the items
-	load_nhd()
+	if import_nhd:
+		load_nhd()
+
+	if clear_flow_data:
+		models.SegmentComponentDescriptor.objects.all().delete()
+		models.SegmentComponent.objects.all().delete()
+		models.FlowMetric.objects.all().delete()
+		models.FlowComponent.objects.all().delete()
 
 	# now load flow components and metrics, as well as data for it
 	load_flow_components()
 	load_flow_metrics()
-	load_flow_metric_data(metric_data)
+	create_all_segment_components()
+	load_all_flow_metric_data()
 
 	# build segment_component values
 	build_segment_components()
@@ -243,35 +257,127 @@ def _build_network(force=False, starting_segment=None):
 			_get_upstream(segment, force=force)
 
 
-def load_flow_metric_data(csv_path):
+def load_all_flow_metric_data(folder=settings.LOAD_FFM_FOLDER, ffms=settings.LOAD_FFMS, suffix=settings.LOAD_FFM_SUFFIX):
+	"""
+		Loads all flow metric data configured for loading in settings
+
+	:param folder:
+	:param ffms: Function Flow Metric names. Used in conjunction with the suffix to find filenames in `folder` to load
+	:param suffix:
+	:return:
+	"""
+	for ffm in ffms:
+		log.info("Loading {}".format(ffm))
+		load_single_flow_metric_data(os.path.join(folder, "{}{}".format(ffm, suffix)))
+
+
+class DataLoadingError(BaseException):
+	"""
+		Just helps us tease out base exceptions from the ones we want to skip. Only use for cases
+		where you want to signal to a calling function that it's OK to skip it
+	"""
+	pass
+
+
+def _validate_records(csv_path):
+	"""
+		Doesn't yet do any validation, just does min and max (and I think it does them wrong?)
+	:param csv_path:
+	:return:
+	"""
+	all_numbers = []
+	with open(csv_path, 'r') as csv_filehandle:
+		csv_data = csv.reader(csv_filehandle)
+		header = None
+		for record in csv_data:
+			if not header:
+				header = record
+				continue
+			all_numbers.extend(record[2:7])
+
+	log.debug(min(all_numbers))
+	log.debug(max(all_numbers))
+
+
+def load_single_flow_metric_data(csv_path):
 	"""
 		Given a CSV of modeled stream segment flow metric percentiles, loads this data. Does NOT fill in the actual
 		component values for the segments based on the loaded data though.
 	:param csv_path:
 	:return:
 	"""
+	# _validate_records(csv_path)  - was trying to track down an error, but it was elsewhere
+
 	with open(csv_path, 'r') as csv_filehandle:
 		csv_data = csv.DictReader(csv_filehandle)
+
+		descriptors = []
 		for record in csv_data:
-			_load_segment_data(record)
+			try:
+				descriptors.append(_load_segment_data(record))
+			except DataLoadingError:
+				pass  # DataLoadingError is something we created to signal to the caller that we can roll through.
+
+		# save everything we created, but efficiently
+		try:
+			models.SegmentComponentDescriptor.objects.bulk_create(descriptors)
+		except django.db.utils.IntegrityError:
+			# at least one table (Peak_20) fails because it supposedly has a duplicate SegmentComponent+Metric.
+			# try to insert normally, and if it fails, report and tell the user, then insert it anyway and ignore the problem
+			log.warning("Inserting values for {} while ignoring rows that fail DB constraints. Tried to insert while "
+			            "obeying constraints, but DB reported constraint failure - some data may be missing, and you"
+			            "should probably track down the source of a (likely) duplicate row to know *what's* missing."
+			            " Right now, I don't know, and can't tell you. Sorry.".format(os.path.split(csv_path)[1]))
+			models.SegmentComponentDescriptor.objects.bulk_create(descriptors, ignore_conflicts=True)
 
 
-def _load_segment_data(record):
+def create_all_segment_components():
+	"""
+		Precreates all possible segment components - allows us to bulk create them instead of doing it on demand.
+		The workflow where these were created individually was painfully slow and might have taken even a full day
+		to insert
+	:return:
+	"""
+	segment_components = []
+
+	flow_components = list(models.FlowComponent.objects.all())  # just get it once and keep using the same items
+																# so they don't go out of scope and we don't have to
+																# go back to Django for them
+
+	# a nested for loop is actually better than the alternative - we were creating them as needed before
+	# and couldn't bulk insert, and the DB transactions were killing performance
+	i = 0
+	for segment in models.StreamSegment.objects.all():
+		i+=1
+		if i % 1000 == 0:
+			log.debug("Associated components with {} segments".format(i))
+		for component in flow_components:
+			segment_components.append(models.SegmentComponent(stream_segment=segment, component=component))
+
+	models.SegmentComponent.objects.bulk_create(segment_components)
+
+
+def _load_segment_data(record, name_field="FFM"):
 	"""
 		Loads the data for a single segment based on a dictionary from a CSV dictreader
 	:param record:
 	:return:
 	"""
 	# look up flow metric - then look up its component and see if a segmentcomponent exists for this item
-	if record["FFM_name"] is None or record["FFM_name"] == "":
-		return
+	if record[name_field] is None or record[name_field] == "":
+		raise DataLoadingError("No value for name field in record. Skipping")
 
 	try:
-		metric = models.FlowMetric.objects.get(metric=record["FFM_name"])
+		metric = models.FlowMetric.objects.get(metric=record[name_field])
 	except models.FlowMetric.DoesNotExist:
-		raise ValueError("No metric loaded for [{}]".format(record["FFM_name"]))
+		raise ValueError("No metric loaded for [{}]".format(record[name_field]))
 
-	segment = models.StreamSegment.objects.get(com_id=record["COMID"])
+	try:
+		segment = models.StreamSegment.objects.get(com_id=record["COMID"])
+	except models.StreamSegment.DoesNotExist:
+		log.warning("Couldn't load data for COMID {}. Segment not loaded in database.".format(record["COMID"]))
+		raise DataLoadingError("No segment to attach to. Skipping")
+
 	try:  # we could probably optimize this out by rolling through once and creating all these
 		segment_component = models.SegmentComponent.objects.get(stream_segment=segment, component=metric.component)
 	except models.SegmentComponent.DoesNotExist: 	# if not, create one, if so, get it
@@ -286,8 +392,10 @@ def _load_segment_data(record):
 	# fill in fields
 	descriptor.flow_component = segment_component
 	descriptor.flow_metric = metric
-	descriptor.source_type = record["source"]
-	descriptor.source_name = record["source2"]
+	if "source" in record:
+		descriptor.source_type = record["source"]
+	if "source2" in record:
+		descriptor.source_name = record["source2"]
 	if "Notes" in record:
 		descriptor.notes = record["Notes"]
 
@@ -296,8 +404,9 @@ def _load_segment_data(record):
 	descriptor.pct_50 = record["p50"]
 	descriptor.pct_75 = record["p75"]
 	descriptor.pct_90 = record["p90"]
-	# save everything
-	descriptor.save()
+
+	# Don't save, we'll use bulk_create to do one big transaction and efficiently run the inserts
+	return descriptor
 
 
 def build_segment_components():
@@ -305,5 +414,39 @@ def build_segment_components():
 		Takes all of the segment components and generates their actual bounding values based on their flow metrics
 	:return:
 	"""
+
+	# we could speed this up if build() didn't save itself, and then
+	# we used the components here in a mass update. Might still be pretty slow though
+	# because we're iterating through everything.
 	for segment_component in models.SegmentComponent.objects.all():
 		segment_component.build()
+
+	# check that things loaded
+	DS = models.FlowComponent.objects.get(ceff_id="DS")
+	items = models.SegmentComponent.objects.filter(component=DS, descriptors__id__gt=0)  # get everything with component descriptors defined
+	items[0].build()  # build the first item
+	if not (items[0].start_day > -1):  # and make sure it has a valid start day
+		log.warning("It's possible an error occurred during building segment components - the first item has no start day, which may indicate a failure of the building pipeline")
+
+
+
+
+def check_missing(filepath=r"C:\Users\dsx\Dropbox\Code\belleflopt\data\ffm_modeling\Data\NHD Attributes\nhd_COMID_classification.csv"):
+	"""
+		A tool to compare which COMIDs in a spreadsheet are missing from our database
+	:param filepath:
+	:return:
+	"""
+	with open(filepath, 'r') as filehandle:
+		csv_reader = csv.DictReader(filehandle)
+		missing_count = 0
+		missing_comids = []
+		for row in csv_reader:
+			try:
+				models.StreamSegment.objects.get(com_id=int(row["COMID"]))
+			except models.StreamSegment.DoesNotExist:
+				missing_count += 1
+				missing_comids.append(row["COMID"])
+				log.warning("Missing segment {}. Missing Count: {}".format(int(row["COMID"]), missing_count))
+
+		log.warning("missing IDs: {}".format(str(missing_comids)))

@@ -97,7 +97,7 @@ class FlowMetric(models.Model):
 
 	component = models.ForeignKey(FlowComponent, on_delete=models.CASCADE)
 	characteristic = models.CharField(max_length=100)  # mostly a description
-	metric = models.CharField(max_length=50, unique=True )  # the CEFF short code for it
+	metric = models.CharField(max_length=50, unique=True)  # the CEFF short code for it
 	description = models.TextField()
 
 	def __repr__(self):
@@ -127,10 +127,10 @@ class SegmentComponent(models.Model):
 	# end_day is a property calculated from start_day and duration
 	# end_day_ramp is a property calculated from start_day and duration_ramp
 
-	minimum_magnitude_ramp = models.DecimalField(max_digits=8, decimal_places=2, null=True)
-	minimum_magnitude = models.DecimalField(max_digits=8, decimal_places=2, null=True)
-	maximum_magnitude = models.DecimalField(max_digits=8, decimal_places=2, null=True)
-	maximum_magnitude_ramp = models.DecimalField(max_digits=8, decimal_places=2, null=True)
+	minimum_magnitude_ramp = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+	minimum_magnitude = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+	maximum_magnitude = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+	maximum_magnitude_ramp = models.DecimalField(max_digits=10, decimal_places=2, null=True)
 
 	# the stream and component this data is for
 	stream_segment = models.ForeignKey(StreamSegment, on_delete=models.DO_NOTHING)
@@ -182,20 +182,20 @@ class SegmentComponentDescriptor(models.Model):
 	"""
 
 	class Meta:
-		unique_together = ['flow_component', 'flow_metric']
+		unique_together = ['flow_component', 'flow_metric']  # flow component is unique because it's using SegmentComponent
 
-	flow_component = models.ForeignKey(SegmentComponent, on_delete=models.DO_NOTHING, related_name="metrics")
+	flow_component = models.ForeignKey(SegmentComponent, on_delete=models.DO_NOTHING, related_name="descriptors")
 	flow_metric = models.ForeignKey(FlowMetric, on_delete=models.DO_NOTHING, related_name="descriptors")
 	source_type = models.CharField(max_length=30, null=True)  # source in spreadsheet
 	source_name = models.CharField(max_length=30, null=True)  # source2
 	notes = models.TextField(null=True, blank=True)
 
 	# primary data for this component/segment
-	pct_10 = models.DecimalField(max_digits=8, decimal_places=2)
-	pct_25 = models.DecimalField(max_digits=8, decimal_places=2)
-	pct_50 = models.DecimalField(max_digits=8, decimal_places=2)
-	pct_75 = models.DecimalField(max_digits=8, decimal_places=2)
-	pct_90 = models.DecimalField(max_digits=8, decimal_places=2)
+	pct_10 = models.DecimalField(max_digits=10, decimal_places=2)
+	pct_25 = models.DecimalField(max_digits=10, decimal_places=2)
+	pct_50 = models.DecimalField(max_digits=10, decimal_places=2)
+	pct_75 = models.DecimalField(max_digits=10, decimal_places=2)
+	pct_90 = models.DecimalField(max_digits=10, decimal_places=2)
 
 
 class SegmentPresence(models.Model):
