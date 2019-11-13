@@ -389,10 +389,12 @@ class PeakBenefitBox(BenefitBox):
 
         Needs the peak magnitude and timing, but also two duration metrics. First duration is the window
         duration. Second duration is for the duration of any specific event.
-
-
     """
-    peak_interevent_decay_factor = None  # how rapidly should the benefit *within* a peak event decay?
+
+    peak_frequency = None
+    peak_interevent_decay_factor = None  # how rapidly should the benefit between peak events decay? - will be calculated
+                                            # from peak_frequency
+
     max_benefit = None  # how much benefit should the first day of the first peak event of this kind generate? This
                         # might be different for each kind of peak event (winter vs fall) - this value should be > 1
                         # to incentivize entering the peak flow
@@ -400,11 +402,37 @@ class PeakBenefitBox(BenefitBox):
     peak_duration = None
     peak_intraevent_reduction_factor = None  # will be 1/peak duration, but this way we only calculate it once
 
-    def setup_peak_flows(self, interevent_decay, median_duration, max_benefit):
+    def _get_component_size(self):
+        """
+            Not currently used - gets the length of time the component lasts
+        :return:
+        """
+        if self.start_day_of_water_year < self.end_day_of_water_year:
+            return self.end_day_of_water_year - self.start_day_of_water_year
+        else:
+            return 365 - self.start_day_of_water_year + self.end_day_of_water_year
+
+    def setup_peak_flows(self, peak_frequency, median_duration, max_benefit, minimum_max_benefit=0.25):
+        """
+            we'll calculate the interevent decay factor by taking max_benefit/median_frequency. max_benefit will be reduced
+             by this value each time a peak flow event occurs. This way, in a median year, by the time we got to the end
+             of the season, there'd be no benefit in additional peak flow events
+        :param peak_frequency:  The number of times a peak event occurs in any given water year
+        :param median_duration:
+        :param max_benefit:
+        :parameter minimum_max_benefit: Used when many peak flow events have occurred in the same water year - the benefit
+                            bottoms out, and instead of going to 0, this is used instead.
+        :return:
+        """
         self.max_benefit = max_benefit
-        self.peak_interevent_decay_factor = interevent_decay
         self.peak_duration = median_duration
+        self.minimum_max_benefit = minimum_max_benefit
+
         self.peak_intraevent_reduction_factor = 1 / float(self.peak_duration)
+
+        self.peak_interevent_decay_factor = max_benefit/peak_frequency  # divide the max benefit by the number of times
+                                                    # we're supposed to hit peak in a given year - we'll subtract this
+                                                    # amount after every event.
 
     def get_peak_benefit(self, base_benefit, day_of_current_event, max_benefit):
         """
@@ -455,7 +483,9 @@ class PeakBenefitBox(BenefitBox):
                 exponential function. If the base reaches 1 or less, then we just assign a fixed value of less than 1 because
                 this function becomes a straight line at 1.
             """
-        return base_benefit * (max_benefit ** (self.peak_intraevent_reduction_factor * (day_of_current_event - self.peak_duration)))
+        ben = base_benefit * (max_benefit ** (-self.peak_intraevent_reduction_factor * (day_of_current_event - self.peak_duration)))
+        print(ben)
+        return ben
 
     def get_benefit_for_timeseries(self, timeseries):
         """
@@ -468,18 +498,29 @@ class PeakBenefitBox(BenefitBox):
         :return:
         """
         days = range(1, 366)  # index 0 == day 1 of water year, index 364 == day 365 of water year
-        base_daily_benefit = self.vectorized_single_day_flow_benefit(timeseries, days)
+        original_base_benefit = self.vectorized_single_day_flow_benefit(timeseries, days)
 
         days_in_peak = 0  # how many days long is the current peak_flow event
         current_max_benefit = self.max_benefit  # what's the max benefit available to a new peak flow event?
 
-        for day, benefit in enumerate(base_daily_benefit):
+        base_daily_benefit = [0, ] * 365
+        for day, benefit in enumerate(original_base_benefit):
             if benefit > 0:  # basically, we're in the peak box
-                base_daily_benefit[day] = self.get_peak_benefit(benefit, days_in_peak, current_max_benefit)
+                if current_max_benefit <= 1:  # max benefit of 1 is a flat line in this equation, and won't decay.
+                                                # Max benefits below 1 will actually cause the benefit to increase with
+                                                # days in the peak benefit equation
+                    base_daily_benefit[day] = self.minimum_max_benefit
+                else:
+                    base_daily_benefit[day] = self.get_peak_benefit(benefit, days_in_peak, current_max_benefit)
                 days_in_peak += 1  # add 1 to the current event
-            else:  # benefit = 0
+            else:  # benefit = 0, reset peak calcs
                 if days_in_peak > 0:  # if we were in a peak event, we need to reduce max benefit for the next event
                     current_max_benefit -= self.peak_interevent_decay_factor
-                days_in_peak = 0  # reset
+                    current_max_benefit = max(self.minimum_max_benefit, current_max_benefit)  # if somehow current_max
+                        # _benefit got to be super low, bump it to some value, but keep it lower than base flow.
+                        # this value will also trigger using itself as a constant benefit value above because if it was
+                        # used as the base in an exponential equation, benefit would increase by day
 
-        return base_daily_benefit  # now contains peak benefits, not base benefit
+                days_in_peak = 0  # reset counter for next flow event
+
+        return original_base_benefit, base_daily_benefit  # now contains peak benefits, not base benefit
