@@ -95,13 +95,13 @@ class FlowMetric(models.Model):
 		Just defining available metrics - no data in here really
 	"""
 
-	component = models.ForeignKey(FlowComponent, on_delete=models.CASCADE)
+	components = models.ManyToManyField(FlowComponent, related_name="metrics")  # this is many to many because winter components share timing and duration
 	characteristic = models.CharField(max_length=100)  # mostly a description
 	metric = models.CharField(max_length=50, unique=True)  # the CEFF short code for it
 	description = models.TextField()
 
 	def __repr__(self):
-		return "{}: {} - {}".format(self.component.name, self.characteristic, self.metric)
+		return "{} - {}".format(self.characteristic, self.metric)
 
 	def __str__(self):
 		return self.__repr__()
@@ -148,6 +148,9 @@ class SegmentComponent(models.Model):
 		elif not hasattr(builder, "__call__"):  # if they didn't pass in a callable, tell them that
 			raise ValueError("Must provide a callable function to `build` as the builder for this segment component.")
 
+		if self.component.ceff_id == "Peak":
+			pass
+
 		builder(self)  # modifies this object's values, so we need to save it next
 		self.save()
 
@@ -181,14 +184,27 @@ class SegmentComponentDescriptor(models.Model):
 		this. I think these are equivalent to the functional flow metrics (FFMs).
 	"""
 
-	class Meta:
-		unique_together = ['flow_component', 'flow_metric']  # flow component is unique because it's using SegmentComponent
+	#class Meta:
+	#	unique_together = ['flow_component', 'flow_metric']  # flow component is unique because it's using SegmentComponent
 
-	flow_component = models.ForeignKey(SegmentComponent, on_delete=models.DO_NOTHING, related_name="descriptors")
-	flow_metric = models.ForeignKey(FlowMetric, on_delete=models.DO_NOTHING, related_name="descriptors")
+	flow_components = models.ManyToManyField(SegmentComponent, related_name="descriptors")  # this is many to many because winter components share timing and duration
+	flow_metric = models.ForeignKey(FlowMetric, on_delete=models.CASCADE, related_name="descriptors")
 	source_type = models.CharField(max_length=30, null=True)  # source in spreadsheet
 	source_name = models.CharField(max_length=30, null=True)  # source2
 	notes = models.TextField(null=True, blank=True)
+
+	# OK, so this next field is awful, but I have a good reason. With the switch of .flow_components from a foreign key
+	# to a many to many field, there's not a good way to bulk create these objects while keeping track of the segment
+	# components they attach to because M2M fields require this to already have a pk to create the association, and that
+	# doesn't happen until save is called. When using bulk create, we also don't get pks attached to the existing objects,
+	# except with postgres, so we can't just store them and their associations until after creation, then create the
+	# actual associations. So what we'll do is temporarily store the PKs of the segment components we want to attach this
+	# object to in associated_components_holding_dont_use as comma separated values. Then after bulk creation, we'll
+	# iterate through and create the associations, then null out this field.
+	# Yes, this is super ugly and silly, but we're talking the difference between *days* to load data and an hour or so.
+	# It's worth it to have one tiny null attribute hanging around, I think.
+
+	associated_components_holding_dont_use = models.CharField(max_length=1024, null=True, blank=True)
 
 	# primary data for this component/segment
 	pct_10 = models.DecimalField(max_digits=10, decimal_places=2)

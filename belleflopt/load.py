@@ -27,18 +27,23 @@ def load_fresh(import_nhd=True, clear_flow_data=True):
 		load_nhd()
 
 	if clear_flow_data:
+		log.info("Clearing flow data")
 		models.SegmentComponentDescriptor.objects.all().delete()
 		models.SegmentComponent.objects.all().delete()
 		models.FlowMetric.objects.all().delete()
 		models.FlowComponent.objects.all().delete()
 
 	# now load flow components and metrics, as well as data for it
+	log.info("Loading flow data")
 	load_flow_components()
 	load_flow_metrics()
+	log.info("Creating Segment Components")
 	create_all_segment_components()
+	log.info("Loading Flow Metric Data")
 	load_all_flow_metric_data()
 
 	# build segment_component values
+	log.info("Building Components")
 	build_segment_components()
 
 
@@ -62,112 +67,96 @@ def load_flow_metrics():
 	dry_base = models.FlowComponent.objects.get(name="Dry-season base flow")
 
 	# Fall Pulse Flow metrics
-	models.FlowMetric(characteristic="Magnitude (cfs)",
+	fall_pulse.metrics.create(characteristic="Magnitude (cfs)",
 	                  metric="FA_Mag",
-	                  component=fall_pulse,
-	                  description="Peak magnitude of fall season pulse event (maximum daily peak flow during event)").save()
-	models.FlowMetric(characteristic="Timing (date)",
+	                  description="Peak magnitude of fall season pulse event (maximum daily peak flow during event)")
+	fall_pulse.metrics.create(characteristic="Timing (date)",
 	                  metric="FA_Tim",
-	                  component=fall_pulse,
-	                  description="Start date of fall pulse event").save()
-	models.FlowMetric(characteristic="Duration (days)",
+	                  description="Start date of fall pulse event")
+	fall_pulse.metrics.create(characteristic="Duration (days)",
 	                  metric="FA_Dur",
-	                  component=fall_pulse,
-	                  description="Duration of fall pulse event (# of days start-end)").save()
+	                  description="Duration of fall pulse event (# of days start-end)")
 
 	# Wet Season Base Flow metrics
-	models.FlowMetric(characteristic="Magnitude (cfs)",
+	wet_base.metrics.create(characteristic="Magnitude (cfs)",
 	                  metric="Wet_BFL_Mag_10",
-	                  component=wet_base,
-	                  description="Magnitude of wet season baseflows (10th percentile of daily flows within that season, including peak flow events)").save()
-	models.FlowMetric(characteristic="Magnitude (cfs)",
+	                  description="Magnitude of wet season baseflows (10th percentile of daily flows within that season, including peak flow events)")
+	wet_base.metrics.create(characteristic="Magnitude (cfs)",
 	                  metric="Wet_BFL_Mag_50",
-	                  component=wet_base,
-	                  description="Magnitude of wet season baseflows (50th percentile of daily flows within that season, including peak flow events)").save()
-	models.FlowMetric(characteristic="Timing (date)",
+	                  description="Magnitude of wet season baseflows (50th percentile of daily flows within that season, including peak flow events)")
+
+	# these two metrics have multiple components
+	wet_timing = models.FlowMetric(characteristic="Timing (date)",
 	                  metric="Wet_Tim",
-	                  component=wet_base,
-	                  description="Start date of wet season").save()
-	models.FlowMetric(characteristic="Duration (days)",
+	                  description="Start date of wet season")
+	wet_timing.save()
+	wet_timing.components.add(wet_base, wet_peak)
+	wet_timing.save()
+	wet_duration = models.FlowMetric(characteristic="Duration (days)",
 	                  metric="Wet_BFL_Dur",
-	                  component=wet_base,
-	                  description="Wet season baseflow duration (# of days from start of wet season to start of spring season)").save()
+	                  description="Wet season baseflow duration (# of days from start of wet season to start of spring season)")
+	wet_duration.save()
+	wet_duration.components.add(wet_base, wet_peak)
+	wet_duration.save()
 
 	#  Wet Season Peak Flow metrics
-	models.FlowMetric(characteristic="Magnitude (cfs)",
+	wet_peak.metrics.create(characteristic="Magnitude (cfs)",
 	                  metric="Peak_10",
-	                  component=wet_peak,
-	                  description="Peak-flow magnitude (10% exeedance values of annual peak flow --> 2, 5, and 10 year recurrence intervals)").save()
-	models.FlowMetric(characteristic="Magnitude (cfs)",
+	                  description="Peak-flow magnitude (10% exeedance values of annual peak flow --> 2, 5, and 10 year recurrence intervals)")
+	wet_peak.metrics.create(characteristic="Magnitude (cfs)",
 	                  metric="Peak_20",
-	                  component=wet_peak,
-	                  description="Peak-flow magnitude (20% exeedance values of annual peak flow --> 2, 5, and 10 year recurrence intervals)").save()
-	models.FlowMetric(characteristic="Magnitude (cfs)",
+	                  description="Peak-flow magnitude (20% exeedance values of annual peak flow --> 2, 5, and 10 year recurrence intervals)")
+	wet_peak.metrics.create(characteristic="Magnitude (cfs)",
 	                  metric="Peak_50",
-	                  component=wet_peak,
-	                  description="Peak-flow magnitude (50% exeedance values of annual peak flow --> 2, 5, and 10 year recurrence intervals)").save()
+	                  description="Peak-flow magnitude (50% exeedance values of annual peak flow --> 2, 5, and 10 year recurrence intervals)")
 
-	models.FlowMetric(characteristic="Timing (date)",
+	wet_peak.metrics.create(characteristic="Timing (date)",
 	                  metric="Peak_Dur_10",
-	                  component=wet_peak,
-	                  description="Duration of peak flows over wet season (cumulative number of days in which a given peak-flow recurrence interval is exceeded in a year).").save()
-	models.FlowMetric(characteristic="Timing (date)",
+	                  description="Duration of peak flows over wet season (cumulative number of days in which a given peak-flow recurrence interval is exceeded in a year).")
+	wet_peak.metrics.create(characteristic="Timing (date)",
 	                  metric="Peak_Dur_20",
-	                  component=wet_peak,
-	                  description="Duration of peak flows over wet season (cumulative number of days in which a given peak-flow recurrence interval is exceeded in a year).").save()
-	models.FlowMetric(characteristic="Timing (date)",
+	                  description="Duration of peak flows over wet season (cumulative number of days in which a given peak-flow recurrence interval is exceeded in a year).")
+	wet_peak.metrics.create(characteristic="Timing (date)",
 	                  metric="Peak_Dur_50",
-	                  component=wet_peak,
-	                  description="Duration of peak flows over wet season (cumulative number of days in which a given peak-flow recurrence interval is exceeded in a year).").save()
+	                  description="Duration of peak flows over wet season (cumulative number of days in which a given peak-flow recurrence interval is exceeded in a year).")
 
-	models.FlowMetric(characteristic="Duration (days)",
+	wet_peak.metrics.create(characteristic="Duration (days)",
 	                  metric="Peak_Fre_10",
-	                  component=wet_peak,
-	                  description="Frequency of peak flow events over wet season (number of times in which a given peak-flow recurrence interval is exceeded in a year).").save()
-	models.FlowMetric(characteristic="Duration (days)",
+	                  description="Frequency of peak flow events over wet season (number of times in which a given peak-flow recurrence interval is exceeded in a year).")
+	wet_peak.metrics.create(characteristic="Duration (days)",
 	                  metric="Peak_Fre_20",
-	                  component=wet_peak,
-	                  description="Frequency of peak flow events over wet season (number of times in which a given peak-flow recurrence interval is exceeded in a year).").save()
-	models.FlowMetric(characteristic="Duration (days)",
+	                  description="Frequency of peak flow events over wet season (number of times in which a given peak-flow recurrence interval is exceeded in a year).")
+	wet_peak.metrics.create(characteristic="Duration (days)",
 	                  metric="Peak_Fre_50",
-	                  component=wet_peak,
-	                  description="Frequency of peak flow events over wet season (number of times in which a given peak-flow recurrence interval is exceeded in a year).").save()
+	                  description="Frequency of peak flow events over wet season (number of times in which a given peak-flow recurrence interval is exceeded in a year).")
 
 	# Spring Recession metrics
-	models.FlowMetric(characteristic="Magnitude (cfs)",
+	spring_recession.metrics.create(characteristic="Magnitude (cfs)",
 	                  metric="SP_Mag",
-	                  component=spring_recession,
-	                  description="Spring peak magnitude (daily flow on start date of spring-flow period)").save()
-	models.FlowMetric(characteristic="Timing (date)",
+	                  description="Spring peak magnitude (daily flow on start date of spring-flow period)")
+	spring_recession.metrics.create(characteristic="Timing (date)",
 	                  metric="SP_Tim",
-	                  component=spring_recession,
-	                  description="Start date of spring (date)").save()
-	models.FlowMetric(characteristic="Duration (days)",
+	                  description="Start date of spring (date)")
+	spring_recession.metrics.create(characteristic="Duration (days)",
 	                  metric="SP_Dur",
-	                  component=spring_recession,
-	                  description="Spring flow recession duration (# of days from start of spring to start of summer baseflow period)").save()
-	models.FlowMetric(characteristic="Rate of Change %",
+	                  description="Spring flow recession duration (# of days from start of spring to start of summer baseflow period)")
+	spring_recession.metrics.create(characteristic="Rate of Change %",
 	                  metric="SP_ROC",
-	                  component=spring_recession,
-	                  description="Spring flow recession rate (Percent decrease per day over spring recession period)").save()
+	                  description="Spring flow recession rate (Percent decrease per day over spring recession period)")
 
 	# Dry Season metrics
-	models.FlowMetric(characteristic="Magnitude (cfs)",
+	dry_base.metrics.create(characteristic="Magnitude (cfs)",
 	                  metric="DS_Mag_50",
-	                  component=dry_base,
-	                  description="Base flow magnitude (50th percentile of daily flow within summer season, calculated on an annual basis)").save()
-	models.FlowMetric(characteristic="Magnitude (cfs)",
+	                  description="Base flow magnitude (50th percentile of daily flow within summer season, calculated on an annual basis)")
+	dry_base.metrics.create(characteristic="Magnitude (cfs)",
 	                  metric="DS_Mag_90",
-	                  component=dry_base,
-	                  description="Base flow magnitude (90th percentile of daily flow within summer season, calculated on an annual basis)").save()
-	models.FlowMetric(characteristic="Timing (date)",
+	                  description="Base flow magnitude (90th percentile of daily flow within summer season, calculated on an annual basis)")
+	dry_base.metrics.create(characteristic="Timing (date)",
 	                  metric="DS_Tim",
-	                  component=dry_base,
-	                  description="Summer timing (start date of summer)").save()
-	models.FlowMetric(characteristic="Duration (days)",
+	                  description="Summer timing (start date of summer)")
+	dry_base.metrics.create(characteristic="Duration (days)",
 	                  metric="DS_Dur_WS",
-	                  component=dry_base,
-	                  description="Summer flow duration (# of days from start of summer to start of wet season)").save()
+	                  description="Summer flow duration (# of days from start of summer to start of wet season)")
 
 
 def _get_upstream(stream_segment, force=False):
@@ -311,24 +300,78 @@ def load_single_flow_metric_data(csv_path):
 	with open(csv_path, 'r') as csv_filehandle:
 		csv_data = csv.DictReader(csv_filehandle)
 
+		log.info("Loading Flow Metric (SegmentComponent) Descriptors")
 		descriptors = []
 		for record in csv_data:
 			try:
 				descriptors.append(_load_segment_data(record))
 			except DataLoadingError:
+				log.debug("DataLoadingError triggered. Rolling through as intended")
 				pass  # DataLoadingError is something we created to signal to the caller that we can roll through.
 
-		# save everything we created, but efficiently
-		try:
-			models.SegmentComponentDescriptor.objects.bulk_create(descriptors)
-		except django.db.utils.IntegrityError:
-			# at least one table (Peak_20) fails because it supposedly has a duplicate SegmentComponent+Metric.
-			# try to insert normally, and if it fails, report and tell the user, then insert it anyway and ignore the problem
-			log.warning("Inserting values for {} while ignoring rows that fail DB constraints. Tried to insert while "
-			            "obeying constraints, but DB reported constraint failure - some data may be missing, and you"
-			            "should probably track down the source of a (likely) duplicate row to know *what's* missing."
-			            " Right now, I don't know, and can't tell you. Sorry.".format(os.path.split(csv_path)[1]))
-			models.SegmentComponentDescriptor.objects.bulk_create(descriptors, ignore_conflicts=True)
+	# save everything we created, but efficiently
+	try:
+		log.info("Running DB Query to Create Flow Metric (SegmentComponent) Descriptors")
+		models.SegmentComponentDescriptor.objects.bulk_create(descriptors)
+	except django.db.utils.IntegrityError:
+		# at least one table (Peak_20) fails because it supposedly has a duplicate SegmentComponent+Metric.
+		# try to insert normally, and if it fails, report and tell the user, then insert it anyway and ignore the problem
+		log.warning("Inserting values for {} while ignoring rows that fail DB constraints. Tried to insert while "
+		            "obeying constraints, but DB reported constraint failure - some data may be missing, and you"
+		            "should probably track down the source of a (likely) duplicate row to know *what's* missing."
+		            " Right now, I don't know, and can't tell you. Sorry.".format(os.path.split(csv_path)[1]))
+		models.SegmentComponentDescriptor.objects.bulk_create(descriptors, ignore_conflicts=True)
+
+	# now create the associations - we do it this way because the descriptors need to be created and have IDs in order
+	# to be able to be associated with
+	log.info("Attaching SegmentComponentDescriptors to SegmentComponents")
+	create_associations = []
+	descriptors = models.SegmentComponentDescriptor.objects.all()
+
+	for descriptor in descriptors:
+		# through is the table generated by django to link m2m between tag and photo
+		if descriptor.associated_components_holding_dont_use is not None:
+			component_ids = descriptor.associated_components_holding_dont_use.split(",")
+		else:
+			component_ids = []
+
+		for component_id in component_ids:
+			descriptor_component_association = models.SegmentComponentDescriptor.flow_components.through(
+				segmentcomponentdescriptor_id=descriptor.id,
+				segmentcomponent_id=int(component_id)
+			)
+			create_associations.append(descriptor_component_association)
+			descriptor.associated_components_holding_dont_use = None
+
+	log.info("Executing Query to attach SegmentComponentDescriptors to SegmentComponents")
+	models.SegmentComponentDescriptor.flow_components.through.objects.bulk_create(create_associations)
+
+	log.info("Nulling temporary storage field")
+	models.SegmentComponentDescriptor.objects.bulk_update(descriptors, fields=['associated_components_holding_dont_use'])  # runs the nulling operation on the holding field
+
+	clean_segment_component_descriptors()
+
+
+def clean_segment_component_descriptors():
+	"""
+		The new method of Many to Many relationship for SegmentComponentDescriptors to SegmentComponents means that we
+		can't enforce the unique constraint on metric/component/segment combinations. We don't expect duplicates except
+		with bad input data (which we've gotten). We might want to make this function "louder" in logging.
+		This processes all existing
+		SegmentComponentDescriptors and removes any that have duplicate metric/component/segment combinations, keeping
+		the first one it finds. This is probably going to be slow.
+	:return:
+	"""
+	log.debug("Enforcing no duplicates for SegmentComponentDescriptors")
+	unique = {}
+	seg_comp_descs = models.SegmentComponentDescriptor.objects.all()
+	for scd in seg_comp_descs:
+		for segment_component in scd.flow_components.all():
+			key = "{}.{}.{}".format(scd.flow_metric.pk, segment_component.stream_segment.pk, segment_component.component.pk)
+			if key in unique:
+				scd.delete()
+			else:
+				unique[key] = True
 
 
 def create_all_segment_components():
@@ -357,7 +400,7 @@ def create_all_segment_components():
 	models.SegmentComponent.objects.bulk_create(segment_components)
 
 
-def _load_segment_data(record, name_field="FFM"):
+def _load_segment_data(record, name_field="FFM", create=True):
 	"""
 		Loads the data for a single segment based on a dictionary from a CSV dictreader
 	:param record:
@@ -378,19 +421,25 @@ def _load_segment_data(record, name_field="FFM"):
 		log.warning("Couldn't load data for COMID {}. Segment not loaded in database.".format(record["COMID"]))
 		raise DataLoadingError("No segment to attach to. Skipping")
 
-	try:  # we could probably optimize this out by rolling through once and creating all these
-		segment_component = models.SegmentComponent.objects.get(stream_segment=segment, component=metric.component)
-	except models.SegmentComponent.DoesNotExist: 	# if not, create one, if so, get it
-		segment_component = models.SegmentComponent()
-		segment_component.stream_segment = segment
-		segment_component.component = metric.component
-		segment_component.save()
-
-	# create new SegmentComponentDescriptor tied to flow metric and segmentcomponent
 	descriptor = models.SegmentComponentDescriptor()
+	components = []
+	for component in metric.components.all():  # there's a many to many relationship between metrics and components, so make sure to attach all segment components to this metric's data
+		try:  # we could probably optimize this out by rolling through once and creating all these
+			segment_component = models.SegmentComponent.objects.get(stream_segment=segment, component=component)
+		except models.SegmentComponent.DoesNotExist:  # if not, create one, if so, get it
+			segment_component = models.SegmentComponent()
+			segment_component.stream_segment = segment
+			segment_component.component = component
+			segment_component.save()
 
-	# fill in fields
-	descriptor.flow_component = segment_component
+		components.append(str(segment_component.pk))
+
+	descriptor.associated_components_holding_dont_use = ",".join(components)
+	# NOTE: We don't attach segment_components here because we'd need to do a save and couldn't do efficient bulk
+	# operations. We'll do that in a function that follows this in sequence. This attachment on the line above is
+	# meant as an efficient interim operation. See large comment on model itself for reasoning and information about
+	# this choice and strategy.
+
 	descriptor.flow_metric = metric
 	if "source" in record:
 		descriptor.source_type = record["source"]
