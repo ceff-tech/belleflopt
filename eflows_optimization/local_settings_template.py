@@ -39,24 +39,39 @@ BENEFIT_MAKER_MAP = {  # these are function names that will be looked up in flow
     "DS": "summer_base_flow_benefit_maker"
 }
 
-# NOTE THAT EACH METRIC MUST BE UNIQUE TO A COMPONENT - THEY ARE COMPONENT-TIED
 SUMMER_BASEFLOW_MAGNITUDE_METRIC = "DS_Mag_50"  # which modeled metric should we use for summer baseflow magnitude
 SUMMER_BASEFLOW_START_TIMING_METRIC = "DS_Tim"  # which metric contains start timing for this flow component?
 SUMMER_BASEFLOW_START_TIMING_VALUES = ("pct_10", "pct_25")  # which fields on the start timing metric should be q1 and q2 for timing
 SUMMER_BASEFLOW_DURATION_METRIC = "DS_Dur_WS"  # which metric will have the duration value for summer?
 SUMMER_BASEFLOW_DURATION_VALUES = ("pct_75", "pct_90")  # Used to set q3 and q4 based on start timing values plus duration pulled from duration metric in fields specified here
 
-WINTER_PEAK_MAGNITUDE_METRIC = "Peak_20"  # which modeled metric should we use for winter peak magnitude
-WINTER_PEAK_START_TIMING_METRIC = "Peak_Dur_20"  # which metric contains start timing for this flow component? This one is a bit different, AND NOT YET READY, because the peak flow component will need to handle it a bit differently and make sure it hits the magnitude values as many times as specified in the frequency during the period specified by start timing and duration of the winter baseflow
+WINTER_PEAK_MAGNITUDE_METRIC = "Peak_50"  # which modeled metric should we use for winter peak magnitude
+WINTER_PEAK_START_TIMING_METRIC = "Wet_Tim"  # which fields on the start timing metric should be q1 and q2 for timing
 WINTER_PEAK_START_TIMING_VALUES = ("pct_10", "pct_25")  # which fields on the start timing metric should be q1 and q2 for timing
-WINTER_PEAK_DURATION_METRIC = "Peak_Fre_20"  # which metric will have the duration value for winter peak?
 WINTER_PEAK_DURATION_VALUES = ("pct_75", "pct_90")  # Used to set q3 and q4 based on start timing values plus duration pulled from duration metric in fields specified here
+WINTER_PEAK_DURATION_METRIC = "Wet_BFL_Dur"
+
+WINTER_PEAK_EVENT_FREQUENCY_METRIC = "Peak_Fre_50"
+WINTER_PEAK_EVENT_DURATION_METRIC = "Peak_Dur_20"
+WINTER_PEAK_EVENT_FREQUENCY_VALUE = "pct_50"
+WINTER_PEAK_EVENT_DURATION_VALUE = "pct_50"
+WINTER_PEAK_EVENT_STARTING_BENEFIT = 10  # normally benefit is "1" - so a benefit of 10 makes a winter flow much more beneficial, but it tails off quickly
 
 WINTER_BASEFLOW_MAGNITUDE_METRIC = "Wet_BFL_Mag_50"  # which modeled metric should we use for winter baseflow magnitude
 WINTER_BASEFLOW_START_TIMING_METRIC = "Wet_Tim"  # which metric contains start timing for this flow component?
 WINTER_BASEFLOW_START_TIMING_VALUES = ("pct_10", "pct_25")  # which fields on the start timing metric should be q1 and q2 for timing
 WINTER_BASEFLOW_DURATION_METRIC = "Wet_BFL_Dur"  # which metric will have the duration value for winter baseflow?
 WINTER_BASEFLOW_DURATION_VALUES = ("pct_75", "pct_90")  # Used to set q3 and q4 based on start timing values plus duration pulled from duration metric in fields specified here
+
+FALL_INITIATION_MAGNITUDE_METRIC = ""  # which modeled metric should we use for winter baseflow magnitude
+FALL_INITIATION_START_TIMING_METRIC = ""  # which metric contains start timing for this flow component?
+FALL_INITIATION_START_TIMING_VALUES = ("pct_10", "pct_25")  # which fields on the start timing metric should be q1 and q2 for timing
+FALL_INITIATION_DURATION_METRIC = ""  # which metric will have the duration value for winter baseflow?
+FALL_INITIATION_DURATION_VALUES = ("pct_75", "pct_90")  # Used to set q3 and q4 based on start timing values plus duration pulled from duration metric in fields specified here
+
+FALL_INITIATION_FREQUENCY = 1  # this only happens once in the season officially
+FALL_INITIATION_EVENT_STARTING_BENEFIT = 5  # normally benefit is "1" - so a benefit of 10 makes a winter flow much more beneficial, but it tails off quickly
+FALL_INITIATION_EVENT_DURATION_VALUE = "pct_50"
 
 # The names and folder of the FFM data to load
 LOAD_FFM_FOLDER = os.path.join(BASE_DIR, "data", "ffm_modeling", "Data", "NHD FFM predictions")
@@ -73,7 +88,9 @@ LOAD_FFMS = [SUMMER_BASEFLOW_MAGNITUDE_METRIC,
 
 LOAD_FFM_SUFFIX = "_NHD_pred_range.csv"
 
-# COLORS - used in graph output
+# COLORS
+# Primary color scheme at http://paletton.com/#uid=43k0I0koVuLfcI0kqzutVrkvtln
+
 # used http://www.zonums.com/online/color_ramp/ with color scheme colors and variations
 # of 35, 139, 149
 # 100

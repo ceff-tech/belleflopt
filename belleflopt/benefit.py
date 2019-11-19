@@ -516,6 +516,7 @@ class PeakBenefitBox(BenefitBox):
         days_in_peak = 0  # how many days long is the current peak_flow event
         current_max_benefit = float(self.max_benefit)  # what's the max benefit available to a new peak flow event?
 
+        max_event_base_benefit = 0  # we'll use this to track if the peak event in the main body of the window, or just barely happened
         base_daily_benefit = [0, ] * 365
         for day, benefit in enumerate(original_base_benefit):
             if benefit > 0:  # basically, we're in the peak box
@@ -526,14 +527,20 @@ class PeakBenefitBox(BenefitBox):
                 else:
                     base_daily_benefit[day] = self.get_peak_benefit(benefit, days_in_peak, current_max_benefit)
                 days_in_peak += 1  # add 1 to the current event
+                max_event_base_benefit = max(max_event_base_benefit, benefit)  # store the current max_event_base_benefit, or the new benefit, whichever is larger
             else:  # benefit = 0, reset peak calcs
                 if days_in_peak > 0:  # if we were in a peak event, we need to reduce max benefit for the next event
-                    current_max_benefit -= float(self.peak_interevent_decay_factor)
+                    # we'll reduce the current max benefit by the decay factor, scaled by how big this current event go
+                    # if it never hit the main body of the range, then it'll only drop a little. This prevents the situation
+                    # where we get 2 events that barely hit the 10th percentile, then a 50th percentile event gets no
+                    # benefit right after that.
+                    current_max_benefit -= float(self.peak_interevent_decay_factor) * max_event_base_benefit
                     current_max_benefit = max(self.minimum_max_benefit, current_max_benefit)  # if somehow current_max
                         # _benefit got to be super low, bump it to some value, but keep it lower than base flow.
                         # this value will also trigger using itself as a constant benefit value above because if it was
                         # used as the base in an exponential equation, benefit would increase by day
 
-                days_in_peak = 0  # reset counter for next flow event
+                    max_event_base_benefit = 0
+                    days_in_peak = 0  # reset counter for next flow event
 
         return original_base_benefit, base_daily_benefit  # now contains peak benefits, not base benefit
