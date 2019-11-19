@@ -28,8 +28,8 @@ class StreamSegment(models.Model):
 	name = models.CharField(null=True, max_length=255, blank=True)  # include the name just for our own usefulness
 	ftype = models.CharField(null=True, blank=True, max_length=32, choices=FTYPE_CHOICES)
 	strahler_order = models.PositiveSmallIntegerField(null=True, blank=True)
-	total_upstream_area = models.DecimalField(max_digits=12, decimal_places=5)
-	routed_upstream_area = models.DecimalField(max_digits=12, decimal_places=5)
+	total_upstream_area = models.DecimalField(max_digits=12, decimal_places=5, null=True, blank=True)
+	routed_upstream_area = models.DecimalField(max_digits=12, decimal_places=5, null=True, blank=True)
 	# components
 	# species
 

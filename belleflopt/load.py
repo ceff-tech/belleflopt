@@ -458,9 +458,10 @@ def _load_segment_data(record, name_field="FFM", create=True):
 	return descriptor
 
 
-def build_segment_components():
+def build_segment_components(simple_test=True):
 	"""
 		Takes all of the segment components and generates their actual bounding values based on their flow metrics
+		:param simple_test: When True, checks to see if a specific item built correctly
 	:return:
 	"""
 
@@ -470,14 +471,13 @@ def build_segment_components():
 	for segment_component in models.SegmentComponent.objects.all():
 		segment_component.build()
 
-	# check that things loaded
-	DS = models.FlowComponent.objects.get(ceff_id="DS")
-	items = models.SegmentComponent.objects.filter(component=DS, descriptors__id__gt=0)  # get everything with component descriptors defined
-	items[0].build()  # build the first item
-	if not (items[0].start_day > -1):  # and make sure it has a valid start day
-		log.warning("It's possible an error occurred during building segment components - the first item has no start day, which may indicate a failure of the building pipeline")
-
-
+	if simple_test:
+		# check that things loaded
+		DS = models.FlowComponent.objects.get(ceff_id="DS")
+		items = models.SegmentComponent.objects.filter(component=DS, descriptors__id__gt=0)  # get everything with component descriptors defined
+		items[0].build()  # build the first item
+		if not (items[0].start_day > -1):  # and make sure it has a valid start day
+			log.warning("It's possible an error occurred during building segment components - the first item has no start day, which may indicate a failure of the building pipeline")
 
 
 def check_missing(filepath=r"C:\Users\dsx\Dropbox\Code\belleflopt\data\ffm_modeling\Data\NHD Attributes\nhd_COMID_classification.csv"):

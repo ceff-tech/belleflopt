@@ -51,11 +51,11 @@ def _general_peak_benefit_maker(segment_component, frequency_metric, frequency_v
 	benefit_item = _general_benefit_maker(segment_component, benefit_class=benefit.PeakBenefitBox)
 
 	if frequency_metric is not None:
-		frequency_item = segment_component.descriptors.get(flow_metric__name=frequency_metric)
+		frequency_item = segment_component.descriptors.get(flow_metric__metric=frequency_metric)
 		frequency = getattr(frequency_item, frequency_value)
 	else:
 		frequency = frequency_value
-	peak_duration_item = segment_component.descriptors.get(flow_metric__name=peak_duration_metric)
+	peak_duration_item = segment_component.descriptors.get(flow_metric__metric=peak_duration_metric)
 
 	benefit_item.setup_peak_flows(peak_frequency=frequency,
 									median_duration=getattr(peak_duration_item, peak_value),
@@ -63,7 +63,7 @@ def _general_peak_benefit_maker(segment_component, frequency_metric, frequency_v
 	return benefit_item
 
 
-def peak_benefit_maker(segment_component,
+def winter_peak_flow_benefit_maker(segment_component,
 						frequency_metric=local_settings.WINTER_PEAK_EVENT_FREQUENCY_METRIC,
 						frequency_value=local_settings.WINTER_PEAK_EVENT_FREQUENCY_VALUE,
 						peak_duration_metric=local_settings.WINTER_PEAK_EVENT_DURATION_METRIC,
@@ -102,10 +102,6 @@ def fall_initiation_benefit_maker(segment_component,
 
 def winter_baseflow_benefit_maker(segment_component):
 	return _general_benefit_maker(segment_component)
-
-
-def winter_peak_flow_benefit_maker(segment_component):
-	pass
 
 
 ### Builders

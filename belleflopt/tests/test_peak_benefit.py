@@ -3,11 +3,44 @@ from django.test import TestCase
 import seaborn
 from matplotlib import pyplot as plt
 
-from belleflopt import benefit
+from belleflopt import benefit, models, load
 
 
 class TestPeakBenefit(TestCase):
 	def setUp(self):
+		self.goodyears_bar = 8058513
+		# set up the DB
+		load.load_flow_components()
+		load.load_flow_metrics()
+
+		gy_segment = models.StreamSegment(com_id=self.goodyears_bar, routed_upstream_area=0, total_upstream_area=0)
+		gy_segment.save()
+		gy_segment_component = models.SegmentComponent(stream_segment=gy_segment, component=models.FlowComponent.objects.get(ceff_id="Peak"))
+		gy_segment_component.save()
+
+				# p10, p25, p50, p75, p90
+		ffms = {"Peak_20": [5456.749065, 8858.950927, 13062.81469, 13482.78089, 16421.79807],  # magnitude
+		        "Wet_Tim": [46.385,58.575,72.425,95.1166666666666,118.79],
+		        "Wet_BFL_Dur": [66.4875,94.09375,137.3875,173.8125,197.043333333334],
+		        "Peak_Dur_20": [1,1,2,3,6],
+		        "Peak_Fre_20": [1,1,1,2,3,],
+		        }
+
+		# attach the descriptors
+		for metric in ffms:
+			descriptor = models.SegmentComponentDescriptor(
+				flow_metric=models.FlowMetric.objects.get(metric=metric),
+				pct_10=ffms[metric][0],
+				pct_25=ffms[metric][1],
+				pct_50=ffms[metric][2],
+				pct_75=ffms[metric][3],
+				pct_90=ffms[metric][4],
+			)
+			descriptor.save()
+			descriptor.flow_components.add(gy_segment_component)
+
+		load.build_segment_components(simple_test=False)  # build the segment components so we can use benefit later
+
 		self.benefit = benefit.PeakBenefitBox(low_flow=2000,
 		                                      high_flow=6000,
 		                                      start_day_of_water_year=120,
@@ -41,11 +74,19 @@ class TestPeakBenefit(TestCase):
 		                            181, 180, 202, 227, 241]
 
 	def test_basic_print(self):
-		self.original_benefit, self.benefit = self.benefit.get_benefit_for_timeseries(self.goodyears_bar_flows)
-		self._plot_benefit()
+		original_benefit, base_benefit = self.benefit.get_benefit_for_timeseries(self.goodyears_bar_flows)
+		self._plot_benefit(base_benefit, original_benefit)
 
-	def _plot_benefit(self, ):
+	def _plot_benefit(self, base_benefit, original_benefit):
 		x = list(range(1, 366))
-		seaborn.lineplot(x, self.benefit)
-		seaborn.lineplot(x, self.original_benefit)
+		seaborn.lineplot(x, base_benefit)
+		seaborn.lineplot(x, original_benefit)
 		plt.show()
+
+	def test_segment_data(self):
+		segment_component = models.SegmentComponent.objects.get(component__ceff_id="Peak",
+		                                                        stream_segment__com_id=self.goodyears_bar)
+		segment_component.make_benefit()
+
+		original_benefit, base_benefit = segment_component.benefit.get_benefit_for_timeseries(self.goodyears_bar_flows)
+		self._plot_benefit(base_benefit, original_benefit)

@@ -483,7 +483,7 @@ class PeakBenefitBox(BenefitBox):
                 exponential function. If the base reaches 1 or less, then we just assign a fixed value of less than 1 because
                 this function becomes a straight line at 1.
             """
-        ben = base_benefit * (max_benefit ** (-self.peak_intraevent_reduction_factor * (day_of_current_event - self.peak_duration)))
+        ben = float(base_benefit) * (float(max_benefit) ** (-float(self.peak_intraevent_reduction_factor) * float(day_of_current_event - self.peak_duration)))
         print(ben)
         return ben
 
