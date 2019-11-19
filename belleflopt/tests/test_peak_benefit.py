@@ -20,10 +20,13 @@ class TestPeakBenefit(TestCase):
 
 				# p10, p25, p50, p75, p90
 		ffms = {"Peak_20": [5456.749065, 8858.950927, 13062.81469, 13482.78089, 16421.79807],  # magnitude
+		        "Peak_50": [2903.03912950307,4493.50108204508,5484.65785703542,6384.78178673819,14058.5113579775,],
 		        "Wet_Tim": [46.385,58.575,72.425,95.1166666666666,118.79],
 		        "Wet_BFL_Dur": [66.4875,94.09375,137.3875,173.8125,197.043333333334],
 		        "Peak_Dur_20": [1,1,2,3,6],
+		        "Peak_Dur_50": [1,1,4,10,25],
 		        "Peak_Fre_20": [1,1,1,2,3,],
+		        "Peak_Fre_50": [1,1,2,3,5,],
 		        }
 
 		# attach the descriptors
@@ -48,6 +51,7 @@ class TestPeakBenefit(TestCase):
 		                                      flow_margin=0.1)
 
 		self.benefit.setup_peak_flows(peak_frequency=15, median_duration=4, max_benefit=10)
+		self.x = list(range(1, 366))
 		self.goodyears_bar_flows = [111, 111, 112, 146, 146, 133, 127, 122, 118, 118, 118, 116, 114, 112, 112, 112, 111,
 		                            111, 111, 110, 110, 111, 111, 111, 111, 111, 111, 110, 110, 110, 110, 109, 109, 108,
 		                            108, 108, 108, 108, 109, 109, 109, 110, 110, 110, 111, 112, 112, 112, 112, 112, 111,
@@ -78,9 +82,8 @@ class TestPeakBenefit(TestCase):
 		self._plot_benefit(base_benefit, original_benefit)
 
 	def _plot_benefit(self, base_benefit, original_benefit):
-		x = list(range(1, 366))
-		seaborn.lineplot(x, base_benefit)
-		seaborn.lineplot(x, original_benefit)
+		seaborn.lineplot(self.x, base_benefit)
+		seaborn.lineplot(self.x, original_benefit)
 		plt.show()
 
 	def test_segment_data(self):
@@ -90,3 +93,8 @@ class TestPeakBenefit(TestCase):
 
 		original_benefit, base_benefit = segment_component.benefit.get_benefit_for_timeseries(self.goodyears_bar_flows)
 		self._plot_benefit(base_benefit, original_benefit)
+		segment_component.benefit.plot_annual_benefit(screen=False, y_lim=(0, 18000))
+		seaborn.lineplot(self.x, self.goodyears_bar_flows)
+		plt.show()
+
+		segment_component.benefit._plot_max_curve()

@@ -363,7 +363,10 @@ class BenefitBox(object):
 
         return plot
 
-    def plot_annual_benefit(self, screen=True, palette=ListedColormap(seaborn.color_palette(DEFAULT_COLORRAMP))):
+    def plot_annual_benefit(self,
+                            screen=True,
+                            palette=ListedColormap(seaborn.color_palette(DEFAULT_COLORRAMP)),
+                            y_lim=None):
 
         plot = plt.imshow(numpy.swapaxes(self.annual_benefit, 0, 1),
                    cmap=palette,
@@ -371,7 +374,8 @@ class BenefitBox(object):
                    vmin=0,  # force the data minimum to 0 - this should happen anyway, but let's be explicit
                    vmax=1,  # force the color scale to top out at 1, not at the data max
                    )
-        plt.ylim(*self.flow_item.plot_window())
+        y_limits = y_lim if y_lim is not None else self.flow_item.plot_window()
+        plt.ylim(*y_limits)
         plt.xlim(*self.date_item.plot_window())
         plt.title("Annual benefit for {} on segment {}".format(self.component_name, self.segment_id))
         plt.ylabel("Flow/Q (CFS)")
@@ -487,6 +491,15 @@ class PeakBenefitBox(BenefitBox):
         print(ben)
         return ben
 
+    def _plot_max_curve(self):
+        x_vals = range(0,20)
+        y_vals = []  # could do this with a map and functools partial - don't want to look up syntax right now
+        for day in x_vals:
+            y_vals.append(self.get_peak_benefit(base_benefit=1, day_of_current_event=day, max_benefit=self.max_benefit))
+
+        seaborn.lineplot(x=x_vals, y=y_vals)
+        plt.show()
+
     def get_benefit_for_timeseries(self, timeseries):
         """
             Supplies the full benefit *just for this component* across a year given a day of water year-based timeseries
@@ -501,7 +514,7 @@ class PeakBenefitBox(BenefitBox):
         original_base_benefit = self.vectorized_single_day_flow_benefit(timeseries, days)
 
         days_in_peak = 0  # how many days long is the current peak_flow event
-        current_max_benefit = self.max_benefit  # what's the max benefit available to a new peak flow event?
+        current_max_benefit = float(self.max_benefit)  # what's the max benefit available to a new peak flow event?
 
         base_daily_benefit = [0, ] * 365
         for day, benefit in enumerate(original_base_benefit):
@@ -515,7 +528,7 @@ class PeakBenefitBox(BenefitBox):
                 days_in_peak += 1  # add 1 to the current event
             else:  # benefit = 0, reset peak calcs
                 if days_in_peak > 0:  # if we were in a peak event, we need to reduce max benefit for the next event
-                    current_max_benefit -= self.peak_interevent_decay_factor
+                    current_max_benefit -= float(self.peak_interevent_decay_factor)
                     current_max_benefit = max(self.minimum_max_benefit, current_max_benefit)  # if somehow current_max
                         # _benefit got to be super low, bump it to some value, but keep it lower than base flow.
                         # this value will also trigger using itself as a constant benefit value above because if it was
