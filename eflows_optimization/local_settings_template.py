@@ -52,8 +52,8 @@ WINTER_PEAK_DURATION_VALUES = ("pct_75", "pct_90")  # Used to set q3 and q4 base
 WINTER_PEAK_DURATION_METRIC = "Wet_BFL_Dur"
 
 WINTER_PEAK_EVENT_FREQUENCY_METRIC = "Peak_Fre_50"
-WINTER_PEAK_EVENT_DURATION_METRIC = "Peak_Dur_20"
-WINTER_PEAK_EVENT_FREQUENCY_VALUE = "pct_50"
+WINTER_PEAK_EVENT_DURATION_METRIC = "Peak_Dur_50"
+WINTER_PEAK_EVENT_FREQUENCY_VALUE = "pct_50"  # which percentile should we use for
 WINTER_PEAK_EVENT_DURATION_VALUE = "pct_50"
 WINTER_PEAK_EVENT_STARTING_BENEFIT = 10  # normally benefit is "1" - so a benefit of 10 makes a winter flow much more beneficial, but it tails off quickly
 

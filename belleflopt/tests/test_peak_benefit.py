@@ -1,6 +1,7 @@
 from django.test import TestCase
 
 import seaborn
+import pandas
 from matplotlib import pyplot as plt
 
 from belleflopt import benefit, models, load
@@ -44,13 +45,6 @@ class TestPeakBenefit(TestCase):
 
 		load.build_segment_components(simple_test=False)  # build the segment components so we can use benefit later
 
-		self.benefit = benefit.PeakBenefitBox(low_flow=2000,
-		                                      high_flow=6000,
-		                                      start_day_of_water_year=120,
-		                                      end_day_of_water_year=240,
-		                                      flow_margin=0.1)
-
-		self.benefit.setup_peak_flows(peak_frequency=15, median_duration=4, max_benefit=10)
 		self.x = list(range(1, 366))
 		self.goodyears_bar_flows = [111, 111, 112, 146, 146, 133, 127, 122, 118, 118, 118, 116, 114, 112, 112, 112, 111,
 		                            111, 111, 110, 110, 111, 111, 111, 111, 111, 111, 110, 110, 110, 110, 109, 109, 108,
@@ -78,12 +72,38 @@ class TestPeakBenefit(TestCase):
 		                            181, 180, 202, 227, 241]
 
 	def test_basic_print(self):
+		self.benefit = benefit.PeakBenefitBox(low_flow=2000,
+		                                      high_flow=6000,
+		                                      start_day_of_water_year=120,
+		                                      end_day_of_water_year=240,
+		                                      flow_margin=0.1)
+
+		self.benefit.setup_peak_flows(peak_frequency=15, median_duration=50, max_benefit=10)
 		original_benefit, base_benefit = self.benefit.get_benefit_for_timeseries(self.goodyears_bar_flows)
 		self._plot_benefit(base_benefit, original_benefit)
 
-	def _plot_benefit(self, base_benefit, original_benefit):
-		seaborn.lineplot(self.x, base_benefit)
-		seaborn.lineplot(self.x, original_benefit)
+		self.benefit.plot_annual_benefit(screen=False)
+		seaborn.lineplot(self.x, self.goodyears_bar_flows)
+		plt.show()
+
+		self.benefit._plot_max_curve()
+
+	def _plot_benefit(self, peak_benefit, base_benefit, segment_component=None):
+		base_data = {
+			"Days": self.x,
+			"Base Benefit": base_benefit,
+			"Peak-Adjusted Benefit": peak_benefit
+		}
+		pd_data = pandas.DataFrame(base_data, columns=base_data.keys())
+
+		seaborn.lineplot("Days", "Peak-Adjusted Benefit", data=pd_data, label="Peak-Adjusted Benefit")
+		seaborn.lineplot("Days", "Base Benefit", data=pd_data, label="Base Benefit")
+
+		if segment_component:
+			plt.title(
+				"Base and peak benefit for {} on segment {}".format(segment_component.component.name, segment_component.stream_segment.com_id))
+		plt.ylabel("Benefit")
+		plt.xlabel("Day of water year")
 		plt.show()
 
 	def test_segment_data(self):
@@ -91,9 +111,9 @@ class TestPeakBenefit(TestCase):
 		                                                        stream_segment__com_id=self.goodyears_bar)
 		segment_component.make_benefit()
 
-		original_benefit, base_benefit = segment_component.benefit.get_benefit_for_timeseries(self.goodyears_bar_flows)
-		self._plot_benefit(base_benefit, original_benefit)
-		segment_component.benefit.plot_annual_benefit(screen=False, y_lim=(0, 18000))
+		original_benefit, peak_benefit = segment_component.benefit.get_benefit_for_timeseries(self.goodyears_bar_flows)
+		self._plot_benefit(peak_benefit, original_benefit, segment_component)
+		segment_component.benefit.plot_annual_benefit(screen=False, y_lim=(0, 16000))
 		seaborn.lineplot(self.x, self.goodyears_bar_flows)
 		plt.show()
 

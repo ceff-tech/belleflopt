@@ -377,7 +377,7 @@ class BenefitBox(object):
         y_limits = y_lim if y_lim is not None else self.flow_item.plot_window()
         plt.ylim(*y_limits)
         plt.xlim(*self.date_item.plot_window())
-        plt.title("Annual benefit for {} on segment {}".format(self.component_name, self.segment_id))
+        plt.title("Annual base benefit for {} on segment {}".format(self.component_name, self.segment_id))
         plt.ylabel("Flow/Q (CFS)")
         plt.xlabel("Day of Water Year")
         plt.colorbar()
@@ -416,7 +416,7 @@ class PeakBenefitBox(BenefitBox):
         else:
             return 365 - self.start_day_of_water_year + self.end_day_of_water_year
 
-    def setup_peak_flows(self, peak_frequency, median_duration, max_benefit, minimum_max_benefit=0.25):
+    def setup_peak_flows(self, peak_frequency, median_duration, max_benefit, minimum_max_benefit=0.5):
         """
             we'll calculate the interevent decay factor by taking max_benefit/median_frequency. max_benefit will be reduced
              by this value each time a peak flow event occurs. This way, in a median year, by the time we got to the end
@@ -425,11 +425,17 @@ class PeakBenefitBox(BenefitBox):
         :param median_duration:
         :param max_benefit:
         :parameter minimum_max_benefit: Used when many peak flow events have occurred in the same water year - the benefit
-                            bottoms out, and instead of going to 0, this is used instead.
+                            bottoms out, and instead of going to 0, this is used instead. It's not *super* bad to stay in
+                            the peak zone, but it's probably not as good as going to baseflow in most situations.
         :return:
         """
         self.max_benefit = max_benefit
-        self.peak_duration = median_duration
+
+        # values of duration smaller than a day don't make sense in the context of this model.
+        self.peak_duration = max(1, float(median_duration) / float(peak_frequency))  # we have to divide these because duration is cumulative
+                                                                # across the season, and frequency is how many events
+                                                                # we have. I want to use it as duration of a single event.
+
         self.minimum_max_benefit = minimum_max_benefit
 
         self.peak_intraevent_reduction_factor = 1 / float(self.peak_duration)
@@ -491,14 +497,29 @@ class PeakBenefitBox(BenefitBox):
         print(ben)
         return ben
 
-    def _plot_max_curve(self):
-        x_vals = range(0,20)
+    def _plot_max_curve(self, screen=True):
+        x_vals = range(0, 20)
         y_vals = []  # could do this with a map and functools partial - don't want to look up syntax right now
         for day in x_vals:
             y_vals.append(self.get_peak_benefit(base_benefit=1, day_of_current_event=day, max_benefit=self.max_benefit))
 
-        seaborn.lineplot(x=x_vals, y=y_vals)
-        plt.show()
+        plot = seaborn.lineplot(x=x_vals, y=y_vals)
+
+        plt.title("Peak benefit intraevent tailoff curve for {} on segment {}".format(self.component_name, self.segment_id))
+        plt.ylabel("Benefit")
+        plt.xlabel("Length of single event (days d)")
+
+        # add the equation information
+        plot.text(11, self.max_benefit-0.5, "Eq: M ^ (-r*(d-p))")
+        plot.text(11, self.max_benefit-1, "    {} ^ (-{}*(d-{}))".format(self.max_benefit, self.peak_intraevent_reduction_factor, self.peak_duration))
+        plot.text(11, self.max_benefit-1.5, "M: Max Benefit")
+        plot.text(11, self.max_benefit-2, "r: Daily Reduction Factor")
+        plot.text(11, self.max_benefit-2.5, "p: Expected Event Duration")
+
+        if screen:
+            plt.show()
+
+        return plot
 
     def get_benefit_for_timeseries(self, timeseries):
         """

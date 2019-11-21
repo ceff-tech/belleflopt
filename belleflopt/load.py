@@ -102,23 +102,23 @@ def load_flow_metrics():
 	#  Wet Season Peak Flow metrics
 	wet_peak.metrics.create(characteristic="Magnitude (cfs)",
 	                  metric="Peak_10",
-	                  description="Peak-flow magnitude (10% exeedance values of annual peak flow --> 2, 5, and 10 year recurrence intervals)")
+	                  description="Peak-flow magnitude (10 year/10% exeedance values of annual peak flow --> 2, 5, and 10 year recurrence intervals)")
 	wet_peak.metrics.create(characteristic="Magnitude (cfs)",
 	                  metric="Peak_20",
-	                  description="Peak-flow magnitude (20% exeedance values of annual peak flow --> 2, 5, and 10 year recurrence intervals)")
+	                  description="Peak-flow magnitude (5 year/20% exeedance values of annual peak flow --> 2, 5, and 10 year recurrence intervals)")
 	wet_peak.metrics.create(characteristic="Magnitude (cfs)",
 	                  metric="Peak_50",
-	                  description="Peak-flow magnitude (50% exeedance values of annual peak flow --> 2, 5, and 10 year recurrence intervals)")
+	                  description="Peak-flow magnitude (2 year/50% exeedance values of annual peak flow --> 2, 5, and 10 year recurrence intervals)")
 
 	wet_peak.metrics.create(characteristic="Timing (date)",
 	                  metric="Peak_Dur_10",
-	                  description="Duration of peak flows over wet season (cumulative number of days in which a given peak-flow recurrence interval is exceeded in a year).")
+	                  description="Duration of peak flows over wet season for 10% exceedence/10 year recurrence (cumulative number of days in which a given peak-flow recurrence interval is exceeded in a year).")
 	wet_peak.metrics.create(characteristic="Timing (date)",
 	                  metric="Peak_Dur_20",
-	                  description="Duration of peak flows over wet season (cumulative number of days in which a given peak-flow recurrence interval is exceeded in a year).")
+	                  description="Duration of peak flows over wet season 20% exceedence/5 year recurrence (cumulative number of days in which a given peak-flow recurrence interval is exceeded in a year).")
 	wet_peak.metrics.create(characteristic="Timing (date)",
 	                  metric="Peak_Dur_50",
-	                  description="Duration of peak flows over wet season (cumulative number of days in which a given peak-flow recurrence interval is exceeded in a year).")
+	                  description="Duration of peak flows over wet season 50% exceedence/2 year recurrence (cumulative number of days in which a given peak-flow recurrence interval is exceeded in a year).")
 
 	wet_peak.metrics.create(characteristic="Duration (days)",
 	                  metric="Peak_Fre_10",
