@@ -80,15 +80,17 @@ class TestPeakBenefit(TestCase):
 
 		self.benefit.setup_peak_flows(peak_frequency=15, median_duration=50, max_benefit=10)
 		original_benefit, base_benefit = self.benefit.get_benefit_for_timeseries(self.goodyears_bar_flows)
-		self._plot_benefit(base_benefit, original_benefit)
+		self._plot_benefit(base_benefit, original_benefit,
+		                   save_path=r"C:\Users\dsx\Dropbox\Graduate\Thesis\figures\peak_benefit_examples\basic_peak_benefit.png")
 
 		self.benefit.plot_annual_benefit(screen=False)
 		seaborn.lineplot(self.x, self.goodyears_bar_flows)
+		plt.savefig(r"C:\Users\dsx\Dropbox\Graduate\Thesis\figures\peak_benefit_examples\basic_hydrograph_annual.png")
 		plt.show()
 
-		self.benefit._plot_max_curve()
+		self.benefit._plot_max_curve(save_path=r"C:\Users\dsx\Dropbox\Graduate\Thesis\figures\peak_benefit_examples\basic_curve.png")
 
-	def _plot_benefit(self, peak_benefit, base_benefit, segment_component=None):
+	def _plot_benefit(self, peak_benefit, base_benefit, segment_component=None, save_path=None):
 		base_data = {
 			"Days": self.x,
 			"Base Benefit": base_benefit,
@@ -104,6 +106,8 @@ class TestPeakBenefit(TestCase):
 				"Base and peak benefit for {} on segment {}".format(segment_component.component.name, segment_component.stream_segment.com_id))
 		plt.ylabel("Benefit")
 		plt.xlabel("Day of water year")
+		if save_path is not None:
+			plt.savefig(save_path)
 		plt.show()
 
 	def test_segment_data(self):
@@ -112,9 +116,11 @@ class TestPeakBenefit(TestCase):
 		segment_component.make_benefit()
 
 		original_benefit, peak_benefit = segment_component.benefit.get_benefit_for_timeseries(self.goodyears_bar_flows)
-		self._plot_benefit(peak_benefit, original_benefit, segment_component)
+		self._plot_benefit(peak_benefit, original_benefit, segment_component,
+		                   save_path=r"C:\Users\dsx\Dropbox\Graduate\Thesis\figures\peak_benefit_examples\goodyears_peak_benefit.png")
 		segment_component.benefit.plot_annual_benefit(screen=False, y_lim=(0, 16000))
 		seaborn.lineplot(self.x, self.goodyears_bar_flows)
+		plt.savefig(r"C:\Users\dsx\Dropbox\Graduate\Thesis\figures\peak_benefit_examples\goodyears_hydrograph_annual.png")
 		plt.show()
 
-		segment_component.benefit._plot_max_curve()
+		segment_component.benefit._plot_max_curve(save_path=r"C:\Users\dsx\Dropbox\Graduate\Thesis\figures\peak_benefit_examples\goodyears_curve.png")

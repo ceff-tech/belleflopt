@@ -1,3 +1,4 @@
+import django
 from django.db import models
 
 from belleflopt import flow_components
@@ -253,3 +254,22 @@ class HUC(models.Model):
 	@property
 	def huc_8(self):
 		return self.huc_id[:8]
+
+
+class ModelRun(models.Model):
+	name = models.CharField(null=True, blank=True)
+	date_run = models.DateTimeField(default=django.utils.timezone.now)
+
+
+class FlowBenefitResult(models.Model):
+	"""
+		Stores flow and benefit allocations for a specific day of the water year, model run and iteration of that run
+	"""
+	model_run = models.ForeignKey(ModelRun, on_delete=models.CASCADE)
+	model_iteration = models.IntegerField()   # which iteration of the model does this correspond to?
+	available_flow = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+	environmental_flow = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+	environmental_benefit = models.FloatField()
+	economic_flow = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+	economic_benefit = models.FloatField()
+	day_of_water_year = models.SmallIntegerField()

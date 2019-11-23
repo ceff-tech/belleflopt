@@ -497,7 +497,7 @@ class PeakBenefitBox(BenefitBox):
         print(ben)
         return ben
 
-    def _plot_max_curve(self, screen=True):
+    def _plot_max_curve(self, screen=True, save_path=None):
         x_vals = range(0, 20)
         y_vals = []  # could do this with a map and functools partial - don't want to look up syntax right now
         for day in x_vals:
@@ -515,6 +515,9 @@ class PeakBenefitBox(BenefitBox):
         plot.text(11, self.max_benefit-1.5, "M: Max Benefit")
         plot.text(11, self.max_benefit-2, "r: Daily Reduction Factor")
         plot.text(11, self.max_benefit-2.5, "p: Expected Event Duration")
+
+        if save_path is not None:
+            plt.savefig(save_path)
 
         if screen:
             plt.show()
