@@ -444,7 +444,7 @@ class PeakBenefitBox(BenefitBox):
                                                     # we're supposed to hit peak in a given year - we'll subtract this
                                                     # amount after every event.
 
-    def get_peak_benefit(self, base_benefit, day_of_current_event, max_benefit):
+    def _get_peak_benefit(self, base_benefit, day_of_current_event, max_benefit):
         """
                 Time window should be based on wet season baseflow timing and duration
 
@@ -501,7 +501,7 @@ class PeakBenefitBox(BenefitBox):
         x_vals = range(0, 20)
         y_vals = []  # could do this with a map and functools partial - don't want to look up syntax right now
         for day in x_vals:
-            y_vals.append(self.get_peak_benefit(base_benefit=1, day_of_current_event=day, max_benefit=self.max_benefit))
+            y_vals.append(self._get_peak_benefit(base_benefit=1, day_of_current_event=day, max_benefit=self.max_benefit))
 
         plot = seaborn.lineplot(x=x_vals, y=y_vals)
 
@@ -549,7 +549,7 @@ class PeakBenefitBox(BenefitBox):
                                                 # days in the peak benefit equation
                     base_daily_benefit[day] = self.minimum_max_benefit
                 else:
-                    base_daily_benefit[day] = self.get_peak_benefit(benefit, days_in_peak, current_max_benefit)
+                    base_daily_benefit[day] = self._get_peak_benefit(benefit, days_in_peak, current_max_benefit)
                 days_in_peak += 1  # add 1 to the current event
                 max_event_base_benefit = max(max_event_base_benefit, benefit)  # store the current max_event_base_benefit, or the new benefit, whichever is larger
             else:  # benefit = 0, reset peak calcs
@@ -568,3 +568,66 @@ class PeakBenefitBox(BenefitBox):
                     days_in_peak = 0  # reset counter for next flow event
 
         return original_base_benefit, base_daily_benefit  # now contains peak benefits, not base benefit
+
+
+class RecessionBenefitBox(BenefitBox):
+    normal_rates = None
+    steep_rates = None
+    fail_rate_of_change = None
+    steep_reduction = None
+    very_steep_reduction = None
+
+    def setup_recession_benefit(self, normal_rates, steep_rates, fail_rate_of_change, steep_reduction, very_steep_reduction):
+        """
+            :param normal_rates:  tuple of the min and max rates for full credit
+            :param steep_rates:  tuple of the min and max rates for partial credit - reduces benefit by multiplying by
+                                steep reduction - should be a wider range than normal_rates
+            :param fail_rate_of_change: The daily rate of change that, if encountered, results in a 0 across
+                                        the recession period because the rate dropped too fast - we'll have
+                                        to monitor if this cause the model not to be able to learn about
+                                        what makes a good recession value (or put it in a decent starting position?)
+            :param steep_reduction: A multiplier for how much to reduce benefit by when we're in the steep range
+                                        and outside of the normal range
+            :param very_steep_reduction: A multiplier for how much to reduce benefit by when we're not within any ranges
+                                        but we haven't gotten to the fail range. For very flat and very steep ranges.
+                                        It's possible that tweaking this flat to be OKish would be fine - Sarah says
+                                        that stairstepping during the recession is fine, so long as the steps down aren't
+                                        too big, which we're checking with the fail_rate_of_change.
+        :return:
+        """
+
+        self.normal_rates = normal_rates
+        self.steep_rates = steep_rates
+        self.fail_rate_of_change = fail_rate_of_change
+        self.steep_reduction = steep_reduction
+        self.very_steep_reduction = very_steep_reduction
+
+    def get_benefit_for_timeseries(self, timeseries):
+        days = range(1, 366)  # index 0 == day 1 of water year, index 364 == day 365 of water year
+        original_base_benefit = self.vectorized_single_day_flow_benefit(timeseries, days)  # get the base benefit
+
+        final_benefit = [] * 365
+        for day, benefit in enumerate(original_base_benefit):
+            if benefit == 0:  # if we're outside of the recession box, just go to the next day
+                final_benefit[day] = 0
+                continue
+
+            if day == 0:  # on day 0 of the recession, we can't compare the rate of change, so just use the base value
+                final_benefit[day] = benefit
+                continue
+
+            rate_of_drop = abs(float(timeseries[day] - timeseries[day-1])/timeseries[day-1])  # calculate the rate of drop
+
+            if rate_of_drop > self.fail_rate_of_change:
+                return [0,] * 365  # return no benefit anywhere - we dropped too fast
+            elif self.normal_rates[0] < rate_of_drop < self.normal_rates[1]:  # if it's in this segment's normal range
+                final_benefit[day] = benefit  # return the normal amount of benefit
+            elif self.steep_rates[0] < rate_of_drop < self.steep_rates[1]:  # if we're in the steep range, reduce benefit
+                final_benefit[day] = benefit * self.steep_reduction
+            else:  # if we're outside of both ranges of rate of change, but haven't crossed the fail rate of change threshold
+                final_benefit[day] = benefit * self.very_steep_reduction
+
+        return final_benefit
+
+
+
