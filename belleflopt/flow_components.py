@@ -78,8 +78,32 @@ def winter_peak_flow_benefit_maker(segment_component,
 										peak_benefit_value=peak_benefit_value)
 
 
-def spring_recession_benefit_maker(segment_component):
-	pass
+def spring_recession_benefit_maker(segment_component,
+									rate_of_change_metric=local_settings.SPRING_RECESSION_RATE_OF_CHANGE_METRIC,
+									full_benefit_values=local_settings.SPRING_RECESSION_RATE_OF_CHANGE_FULL_VALUES,
+									steep_benefit_values=local_settings.SPRING_RECESSION_RATE_OF_CHANGE_STEEP_VALUES,
+									steep_reduction_factor=local_settings.SPRING_RECESSION_RATE_REDUCTION_VALUE,
+									very_steep_reduction_factor=local_settings.SPRING_RECESSION_RATE_VERY_STEEP_REDUCTION_VALUE,
+									max_daily_rate=local_settings.SPRING_RECESSION_MAX_RATE,
+									min_time_before_fail=local_settings.SPRING_RECESSION_MIN_TIME_BEFORE_MAX_RATE_FAIL):
+
+	# set up the base benefit
+	b = _general_benefit_maker(segment_component, benefit_class=benefit.RecessionBenefitBox)
+
+	# make the tuples of actual rate of change values by retrieving them from the rate of change metric
+	rate_of_change = segment_component.descriptors.get(flow_metric__metric=rate_of_change_metric)
+	normal_rates = (getattr(rate_of_change, full_benefit_values[0]), getattr(rate_of_change, full_benefit_values[1]))
+	steep_rates = (getattr(rate_of_change, steep_benefit_values[0]), getattr(rate_of_change, steep_benefit_values[1]))
+
+
+	b.setup_recession_benefit(normal_rates=normal_rates,
+								steep_rates=steep_rates,
+								fail_rate_of_change=max_daily_rate,
+								steep_reduction=steep_reduction_factor,
+								very_steep_reduction=very_steep_reduction_factor,
+								min_time_before_fail=min_time_before_fail)
+
+	return b
 
 
 def summer_base_flow_benefit_maker(segment_component):
@@ -154,8 +178,34 @@ def _generic_timing_and_duration(segment_component, end_duration_definition, dur
 	segment_component.duration_ramp = getattr(end_duration_definition, duration_vals[1])
 
 
-def spring_recession_builder(segment_component):
-	pass
+def spring_recession_builder(segment_component,
+								magnitude_top_metric=local_settings.SPRING_RECESSION_MAGNITUDE_TOP_METRIC,
+								magnitude_bottom_metric=local_settings.SPRING_RECESSION_MAGNITUDE_BOTTOM_METRIC,
+								start_timing_metric=local_settings.SPRING_RECESSION_START_TIMING_METRIC,
+								duration_metric=local_settings.SPRING_RECESSION_DURATION_METRIC,
+								start_timing_vals=local_settings.SPRING_RECESSION_START_TIMING_VALUES,
+								duration_vals=local_settings.SPRING_RECESSION_START_TIMING_VALUES):
+	try:
+		# Get the flow metric values specific to this segment, that match what we need as defined in local_settings
+		magnitude_top_definition = segment_component.descriptors.get(flow_metric__metric=magnitude_top_metric)
+		magnitude_bottom_definition = segment_component.descriptors.get(flow_metric__metric=magnitude_bottom_metric)
+		start_timing_definition = segment_component.descriptors.get(flow_metric__metric=start_timing_metric)
+		end_duration_definition = segment_component.descriptors.get(flow_metric__metric=duration_metric)
+	except ObjectDoesNotExist:  # if no metrics are assigned, we get ObjectDoesNotExist, so just return
+		log.debug("No metrics assigned for segment_component {}".format(segment_component.stream_segment.com_id))
+		return
+	except MultipleObjectsReturned:
+		log.debug("Multiple Objects Returned for metrics for segment_component with comid {} and component {}".format(segment_component.stream_segment.com_id, segment_component.component.name))
+		raise
+
+	# we use different top and bottom metrics for magnitude, so need to do this manually, not with generic.
+	segment_component.minimum_magnitude_ramp = magnitude_bottom_definition.pct_10
+	segment_component.minimum_magnitude = magnitude_bottom_definition.pct_25
+	segment_component.maximum_magnitude = magnitude_top_definition.pct_75
+	segment_component.maximum_magnitude_ramp = magnitude_top_definition.pct_90
+
+	_generic_timing_and_duration(segment_component, end_duration_definition, duration_vals, start_timing_definition,
+									start_timing_vals)
 
 
 def summer_base_flow_builder(segment_component,

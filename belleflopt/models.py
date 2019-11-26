@@ -257,7 +257,7 @@ class HUC(models.Model):
 
 
 class ModelRun(models.Model):
-	name = models.CharField(null=True, blank=True)
+	name = models.CharField(max_length=255, null=True, blank=True)
 	date_run = models.DateTimeField(default=django.utils.timezone.now)
 
 

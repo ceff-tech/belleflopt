@@ -79,7 +79,7 @@ class TestPeakBenefit(TestCase):
 		                                      flow_margin=0.1)
 
 		self.benefit.setup_peak_flows(peak_frequency=15, median_duration=50, max_benefit=10)
-		original_benefit, base_benefit = self.benefit.get_benefit_for_timeseries(self.goodyears_bar_flows)
+		original_benefit, base_benefit = self.benefit.get_benefit_for_timeseries(self.goodyears_bar_flows, testing=True)
 		self._plot_benefit(base_benefit, original_benefit,
 		                   save_path=r"C:\Users\dsx\Dropbox\Graduate\Thesis\figures\peak_benefit_examples\basic_peak_benefit.png")
 
@@ -115,7 +115,7 @@ class TestPeakBenefit(TestCase):
 		                                                        stream_segment__com_id=self.goodyears_bar)
 		segment_component.make_benefit()
 
-		original_benefit, peak_benefit = segment_component.benefit.get_benefit_for_timeseries(self.goodyears_bar_flows)
+		original_benefit, peak_benefit = segment_component.benefit.get_benefit_for_timeseries(self.goodyears_bar_flows, testing=True)
 		self._plot_benefit(peak_benefit, original_benefit, segment_component,
 		                   save_path=r"C:\Users\dsx\Dropbox\Graduate\Thesis\figures\peak_benefit_examples\goodyears_peak_benefit.png")
 		segment_component.benefit.plot_annual_benefit(screen=False, y_lim=(0, 16000))

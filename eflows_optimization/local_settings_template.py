@@ -15,10 +15,10 @@ DEBUG = True
 # https://docs.djangoproject.com/en/2.1/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-    }
+	'default': {
+		'ENGINE': 'django.db.backends.sqlite3',
+		'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+	}
 }
 
 COMPONENT_BUILDER_MAP = {  # not a true plugin system yet, but people can put code in the flow_components file and modify
@@ -32,11 +32,11 @@ COMPONENT_BUILDER_MAP = {  # not a true plugin system yet, but people can put co
 }
 
 BENEFIT_MAKER_MAP = {  # these are function names that will be looked up in flow_components.py when a function isn't explicitly provided
-    "FA": "fall_initiation_benefit_maker",
-    "Wet_BFL": "winter_baseflow_benefit_maker",
-    "Peak": "winter_peak_flow_benefit_maker",
-    "SP": "spring_recession_benefit_maker",
-    "DS": "summer_base_flow_benefit_maker"
+	"FA": "fall_initiation_benefit_maker",
+	"Wet_BFL": "winter_baseflow_benefit_maker",
+	"Peak": "winter_peak_flow_benefit_maker",
+	"SP": "spring_recession_benefit_maker",
+	"DS": "summer_base_flow_benefit_maker"
 }
 
 SUMMER_BASEFLOW_MAGNITUDE_METRIC = "DS_Mag_50"  # which modeled metric should we use for summer baseflow magnitude
@@ -63,28 +63,53 @@ WINTER_BASEFLOW_START_TIMING_VALUES = ("pct_10", "pct_25")  # which fields on th
 WINTER_BASEFLOW_DURATION_METRIC = "Wet_BFL_Dur"  # which metric will have the duration value for winter baseflow?
 WINTER_BASEFLOW_DURATION_VALUES = ("pct_75", "pct_90")  # Used to set q3 and q4 based on start timing values plus duration pulled from duration metric in fields specified here
 
-FALL_INITIATION_MAGNITUDE_METRIC = ""  # which modeled metric should we use for winter baseflow magnitude
+FALL_INITIATION_MAGNITUDE_METRIC = ""  # which modeled metric should we use for fall initiation flow
 FALL_INITIATION_START_TIMING_METRIC = ""  # which metric contains start timing for this flow component?
 FALL_INITIATION_START_TIMING_VALUES = ("pct_10", "pct_25")  # which fields on the start timing metric should be q1 and q2 for timing
-FALL_INITIATION_DURATION_METRIC = ""  # which metric will have the duration value for winter baseflow?
+FALL_INITIATION_DURATION_METRIC = ""  # which metric will have the duration value for fall initiation flow?
 FALL_INITIATION_DURATION_VALUES = ("pct_75", "pct_90")  # Used to set q3 and q4 based on start timing values plus duration pulled from duration metric in fields specified here
 
 FALL_INITIATION_FREQUENCY = 1  # this only happens once in the season officially
 FALL_INITIATION_EVENT_STARTING_BENEFIT = 5  # normally benefit is "1" - so a benefit of 10 makes a winter flow much more beneficial, but it tails off quickly
 FALL_INITIATION_EVENT_DURATION_VALUE = "pct_50"
 
+SPRING_RECESSION_MAGNITUDE_TOP_METRIC = "SP_Mag"  # which modeled metric should we use for summer baseflow magnitude
+SPRING_RECESSION_MAGNITUDE_BOTTOM_METRIC = "DS_Mag_50"  # which modeled metric should we use for summer baseflow magnitude
+SPRING_RECESSION_START_TIMING_METRIC = "SP_Tim"  # which metric contains start timing for this flow component?
+SPRING_RECESSION_START_TIMING_VALUES = ("pct_25", "pct_50")  # which fields on the start timing metric should be q1 and q2 for timing
+SPRING_RECESSION_DURATION_METRIC = "SP_Dur"  # which metric will have the duration value for summer?
+SPRING_RECESSION_DURATION_VALUES = ("pct_75", "pct_90")  # Used to set q3 and q4 based on start timing values plus duration pulled from duration metric in fields specified here
+SPRING_RECESSION_RATE_OF_CHANGE_METRIC = "SP_ROC"  # which metric will have the duration value for summer?
+SPRING_RECESSION_RATE_REDUCTION_VALUE = 0.5
+SPRING_RECESSION_RATE_VERY_STEEP_REDUCTION_VALUE = 0.2
+SPRING_RECESSION_RATE_OF_CHANGE_FULL_VALUES = ("pct_25", "pct_75")  # between these values, the recession rate gets full benefit
+SPRING_RECESSION_RATE_OF_CHANGE_STEEP_VALUES = ("pct_10", "pct_90")  # between thsese values, the recession rate gets multiplied by SPRING_RECESSION_RATE_REDUCTION_VALUE
+SPRING_RECESSION_MAX_RATE = 0.3  # if the daily recession rate is above this value when we're in the recession period, we 0 the whole recession out
+SPRING_RECESSION_MIN_TIME_BEFORE_MAX_RATE_FAIL = 7  # how many *consecutive* days do we need to be dropping at less than MAX_RATE before going above MAX_RATE is a recession fail? Basically detects if we're in a recession by looking at the rate for this long
+
 # The names and folder of the FFM data to load
 LOAD_FFM_FOLDER = os.path.join(BASE_DIR, "data", "ffm_modeling", "Data", "NHD FFM predictions")
 
 LOAD_FFMS = [SUMMER_BASEFLOW_MAGNITUDE_METRIC,
-             SUMMER_BASEFLOW_DURATION_METRIC,
-             SUMMER_BASEFLOW_START_TIMING_METRIC,
-             WINTER_PEAK_DURATION_METRIC,
-             WINTER_PEAK_START_TIMING_METRIC,
-             WINTER_PEAK_MAGNITUDE_METRIC,
-             WINTER_BASEFLOW_DURATION_METRIC,
-             WINTER_BASEFLOW_MAGNITUDE_METRIC,
-             WINTER_BASEFLOW_DURATION_METRIC,]
+				SUMMER_BASEFLOW_DURATION_METRIC,
+				SUMMER_BASEFLOW_START_TIMING_METRIC,
+				WINTER_PEAK_DURATION_METRIC,
+				WINTER_PEAK_START_TIMING_METRIC,
+				WINTER_PEAK_MAGNITUDE_METRIC,
+				WINTER_PEAK_EVENT_FREQUENCY_METRIC,
+				WINTER_PEAK_EVENT_DURATION_METRIC,
+				WINTER_BASEFLOW_DURATION_METRIC,
+				WINTER_BASEFLOW_MAGNITUDE_METRIC,
+				WINTER_BASEFLOW_START_TIMING_METRIC,
+				FALL_INITIATION_MAGNITUDE_METRIC,
+				FALL_INITIATION_START_TIMING_METRIC,
+				FALL_INITIATION_DURATION_METRIC,
+				SPRING_RECESSION_DURATION_METRIC,
+				SPRING_RECESSION_MAGNITUDE_TOP_METRIC,
+				SPRING_RECESSION_MAGNITUDE_BOTTOM_METRIC,
+				SPRING_RECESSION_RATE_OF_CHANGE_METRIC,
+				SPRING_RECESSION_START_TIMING_METRIC,
+]
 
 LOAD_FFM_SUFFIX = "_NHD_pred_range.csv"
 

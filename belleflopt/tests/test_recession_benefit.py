@@ -1,3 +1,5 @@
+import logging
+
 from django.test import TestCase
 
 import seaborn
@@ -6,8 +8,9 @@ from matplotlib import pyplot as plt
 
 from belleflopt import benefit, models, load
 
+log = logging.getLogger('belleflopt.tests.recession')
 
-class TestPeakBenefit(TestCase):
+class TestRecessionBenefit(TestCase):
 	def setUp(self):
 		self.goodyears_bar = 8058513
 		# set up the DB
@@ -16,14 +19,15 @@ class TestPeakBenefit(TestCase):
 
 		gy_segment = models.StreamSegment(com_id=self.goodyears_bar, routed_upstream_area=0, total_upstream_area=0)
 		gy_segment.save()
-		gy_segment_component = models.SegmentComponent(stream_segment=gy_segment, component=models.FlowComponent.objects.get(ceff_id="Peak"))
+		gy_segment_component = models.SegmentComponent(stream_segment=gy_segment, component=models.FlowComponent.objects.get(ceff_id="SP"))
 		gy_segment_component.save()
 
 				# p10, p25, p50, p75, p90
 		ffms = {"SP_Tim": [180.5, 214.90625, 232, 241.429166666667, 251.505],
 		        "SP_Mag": [1338.26047901366, 1826.36717829523, 2632.40321398374, 4145.2452861466, 6601.86531921443,],
 		        "SP_Dur": [46, 55, 67.8625, 89.625, 121.016666666667],
-		        "SP_ROC": [0.03845705116239, 0.0486334288519571, 0.0625000000000001, 0.0813201980740652, 0.114111705288176]
+		        "SP_ROC": [0.03845705116239, 0.0486334288519571, 0.0625000000000001, 0.0813201980740652, 0.114111705288176],
+		        "DS_Mag_50":[35.5096639009908, 53.7206668057691, 83.012382212525, 122.765691110504, 144.62423838809]
 		        }
 
 		# attach the descriptors
@@ -71,12 +75,12 @@ class TestPeakBenefit(TestCase):
 		base_data = {
 			"Days": self.x,
 			"Base Benefit": base_benefit,
-			"Peak-Adjusted Benefit": peak_benefit
+			"Recession-Adjusted Benefit": peak_benefit
 		}
 		pd_data = pandas.DataFrame(base_data, columns=base_data.keys())
 
-		seaborn.lineplot("Days", "Peak-Adjusted Benefit", data=pd_data, label="Peak-Adjusted Benefit")
 		seaborn.lineplot("Days", "Base Benefit", data=pd_data, label="Base Benefit")
+		seaborn.lineplot("Days", "Recession-Adjusted Benefit", data=pd_data, label="Recession-Adjusted Benefit")
 
 		if segment_component:
 			plt.title(
@@ -92,9 +96,10 @@ class TestPeakBenefit(TestCase):
 		                                                        stream_segment__com_id=self.goodyears_bar)
 		segment_component.make_benefit()
 
-		original_benefit, peak_benefit = segment_component.benefit.get_benefit_for_timeseries(self.goodyears_bar_flows)
-		self._plot_benefit(peak_benefit, original_benefit, segment_component,
-		                   save_path=r"C:\Users\dsx\Dropbox\Graduate\Thesis\figures\recession_benefit_examples\goodyears_peak_benefit.png")
+		original_benefit, recession_benefit, time_in_recession = segment_component.benefit.get_benefit_for_timeseries(self.goodyears_bar_flows, testing=True)
+		log.info("Time in recession at end was: {}".format(time_in_recession))
+		self._plot_benefit(recession_benefit, original_benefit, segment_component,
+		                   save_path=r"C:\Users\dsx\Dropbox\Graduate\Thesis\figures\recession_benefit_examples\goodyears_recession_benefit.png")
 		segment_component.benefit.plot_annual_benefit(screen=False, y_lim=(0, 6000))
 		seaborn.lineplot(self.x, self.goodyears_bar_flows)
 		plt.savefig(r"C:\Users\dsx\Dropbox\Graduate\Thesis\figures\recession_benefit_examples\goodyears_hydrograph_annual.png")
