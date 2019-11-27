@@ -131,6 +131,7 @@ def winter_baseflow_benefit_maker(segment_component):
 ### Builders
 def _generic_builder(segment_component,
 						magnitude_metric,
+						magnitude_values,
 						start_timing_metric,
 						duration_metric,
 						start_timing_vals,
@@ -149,23 +150,23 @@ def _generic_builder(segment_component,
 		start_timing_definition = segment_component.descriptors.get(flow_metric__metric=start_timing_metric)
 		end_duration_definition = segment_component.descriptors.get(flow_metric__metric=duration_metric)
 	except ObjectDoesNotExist:  # if no metrics are assigned, we get ObjectDoesNotExist, so just return
-		log.debug("No metrics assigned for segment_component {}".format(segment_component.stream_segment.com_id))
+		log.debug("No metrics assigned for segment_component with segment {} and component {}".format(segment_component.stream_segment.com_id, segment_component.component.name))
 		return
 	except MultipleObjectsReturned:
 		log.debug("Multiple Objects Returned for segement component with comid {} and component {}".format(segment_component.stream_segment.com_id, segment_component.component.name))
 		raise
 
-	_generic_magnitude(segment_component, magnitude_definition)
+	_generic_magnitude(segment_component, magnitude_definition, magnitude_values)
 
 	_generic_timing_and_duration(segment_component, end_duration_definition, duration_vals, start_timing_definition,
 	                             start_timing_vals)
 
 
-def _generic_magnitude(segment_component, magnitude_definition):
-	segment_component.minimum_magnitude_ramp = magnitude_definition.pct_10
-	segment_component.minimum_magnitude = magnitude_definition.pct_25
-	segment_component.maximum_magnitude = magnitude_definition.pct_75
-	segment_component.maximum_magnitude_ramp = magnitude_definition.pct_90
+def _generic_magnitude(segment_component, magnitude_definition, magnitude_values):
+	segment_component.minimum_magnitude_ramp = getattr(magnitude_definition, magnitude_values[0])
+	segment_component.minimum_magnitude = getattr(magnitude_definition, magnitude_values[1])
+	segment_component.maximum_magnitude = getattr(magnitude_definition, magnitude_values[2])
+	segment_component.maximum_magnitude_ramp = getattr(magnitude_definition, magnitude_values[3])
 
 
 def _generic_timing_and_duration(segment_component, end_duration_definition, duration_vals, start_timing_definition,
@@ -174,13 +175,24 @@ def _generic_timing_and_duration(segment_component, end_duration_definition, dur
 	# local_settings), and set the q values based on these looked up values
 	segment_component.start_day_ramp = getattr(start_timing_definition, start_timing_vals[0])
 	segment_component.start_day = getattr(start_timing_definition, start_timing_vals[1])
-	segment_component.duration = getattr(end_duration_definition, duration_vals[0])
-	segment_component.duration_ramp = getattr(end_duration_definition, duration_vals[1])
+
+	# the duration vals come in as a two-tuple in the form
+	# ((1. main start timing base value, 2. main duration), (3. duration ramp start timing base value, 4. duration ramp value)
+	# where base values could be the raw value from pct_10, pct_25, or pct_50, etc
+	# and then then main duration values could be any pct_* value after the first one
+	# in each case, ultimately pull item 1 from the start timing definition and add item 2 from the duration definition
+	# similarly, we'll pull item 3 from start timing and add item 4 from duration.
+	segment_component.duration_base = getattr(start_timing_definition, duration_vals[0][0])
+	segment_component.duration_ramp_base = getattr(start_timing_definition, duration_vals[1][0])
+
+	segment_component.duration = getattr(end_duration_definition, duration_vals[0][1])
+	segment_component.duration_ramp = getattr(end_duration_definition, duration_vals[1][1])
 
 
 def spring_recession_builder(segment_component,
 								magnitude_top_metric=local_settings.SPRING_RECESSION_MAGNITUDE_TOP_METRIC,
 								magnitude_bottom_metric=local_settings.SPRING_RECESSION_MAGNITUDE_BOTTOM_METRIC,
+								magnitude_values=local_settings.SPRING_RECESSION_MAGNITUDE_VALUES,
 								start_timing_metric=local_settings.SPRING_RECESSION_START_TIMING_METRIC,
 								duration_metric=local_settings.SPRING_RECESSION_DURATION_METRIC,
 								start_timing_vals=local_settings.SPRING_RECESSION_START_TIMING_VALUES,
@@ -192,17 +204,17 @@ def spring_recession_builder(segment_component,
 		start_timing_definition = segment_component.descriptors.get(flow_metric__metric=start_timing_metric)
 		end_duration_definition = segment_component.descriptors.get(flow_metric__metric=duration_metric)
 	except ObjectDoesNotExist:  # if no metrics are assigned, we get ObjectDoesNotExist, so just return
-		log.debug("No metrics assigned for segment_component {}".format(segment_component.stream_segment.com_id))
+		log.debug("No metrics assigned for segment_component with segment {} and component {}".format(segment_component.stream_segment.com_id, segment_component.component.name))
 		return
 	except MultipleObjectsReturned:
 		log.debug("Multiple Objects Returned for metrics for segment_component with comid {} and component {}".format(segment_component.stream_segment.com_id, segment_component.component.name))
 		raise
 
 	# we use different top and bottom metrics for magnitude, so need to do this manually, not with generic.
-	segment_component.minimum_magnitude_ramp = magnitude_bottom_definition.pct_10
-	segment_component.minimum_magnitude = magnitude_bottom_definition.pct_25
-	segment_component.maximum_magnitude = magnitude_top_definition.pct_75
-	segment_component.maximum_magnitude_ramp = magnitude_top_definition.pct_90
+	segment_component.minimum_magnitude_ramp = getattr(magnitude_bottom_definition, magnitude_values[0])
+	segment_component.minimum_magnitude = getattr(magnitude_bottom_definition, magnitude_values[1])
+	segment_component.maximum_magnitude = getattr(magnitude_top_definition, magnitude_values[2])
+	segment_component.maximum_magnitude_ramp = getattr(magnitude_top_definition, magnitude_values[3])
 
 	_generic_timing_and_duration(segment_component, end_duration_definition, duration_vals, start_timing_definition,
 									start_timing_vals)
@@ -210,12 +222,14 @@ def spring_recession_builder(segment_component,
 
 def summer_base_flow_builder(segment_component,
 							magnitude_metric=local_settings.SUMMER_BASEFLOW_MAGNITUDE_METRIC,
+							magnitude_values=local_settings.SUMMER_BASEFLOW_MAGNITUDE_VALUES,
 							start_timing_metric=local_settings.SUMMER_BASEFLOW_START_TIMING_METRIC,
 							duration_metric=local_settings.SUMMER_BASEFLOW_DURATION_METRIC,
 							start_timing_vals=local_settings.SUMMER_BASEFLOW_START_TIMING_VALUES,
 							duration_vals=local_settings.SUMMER_BASEFLOW_DURATION_VALUES):
 	_generic_builder(segment_component,
 					magnitude_metric=magnitude_metric,
+					magnitude_values=magnitude_values,
 					start_timing_metric=start_timing_metric,
 					duration_metric=duration_metric,
 					start_timing_vals=start_timing_vals,
@@ -224,6 +238,7 @@ def summer_base_flow_builder(segment_component,
 
 def fall_initiation_builder(segment_component,
 							magnitude_metric=local_settings.WINTER_PEAK_MAGNITUDE_METRIC,
+							magnitude_values=local_settings.FALL_INITIATION_MAGNITUDE_VALUES,
 							start_timing_metric=local_settings.WINTER_PEAK_START_TIMING_METRIC,
 							duration_metric=local_settings.WINTER_PEAK_START_TIMING_METRIC,
 							start_timing_vals=local_settings.WINTER_PEAK_START_TIMING_VALUES,
@@ -238,21 +253,23 @@ def fall_initiation_builder(segment_component,
 
 	return _generic_builder(segment_component,
 					magnitude_metric=magnitude_metric,
+					magnitude_values=magnitude_values,
 					start_timing_metric=start_timing_metric,
 					duration_metric=duration_metric,  # We INTENTIONALLY use start timing for duration here - see docstring
 					start_timing_vals=start_timing_vals,
 					duration_vals=duration_vals)
 
 
-
 def winter_base_flow_builder(segment_component,
 							magnitude_metric=local_settings.WINTER_BASEFLOW_MAGNITUDE_METRIC,
+							magnitude_values=local_settings.WINTER_BASEFLOW_MAGNITUDE_VALUES,
 							start_timing_metric=local_settings.WINTER_BASEFLOW_START_TIMING_METRIC,
 							duration_metric=local_settings.WINTER_BASEFLOW_DURATION_METRIC,
 							start_timing_vals=local_settings.WINTER_BASEFLOW_START_TIMING_VALUES,
 							duration_vals=local_settings.WINTER_BASEFLOW_DURATION_VALUES):
 	_generic_builder(segment_component,
 					 magnitude_metric=magnitude_metric,
+	                 magnitude_values=magnitude_values,
 					 start_timing_metric=start_timing_metric,
 					 duration_metric=duration_metric,
 					 start_timing_vals=start_timing_vals,
@@ -261,6 +278,7 @@ def winter_base_flow_builder(segment_component,
 
 def winter_peak_flow_builder(segment_component,
 							magnitude_metric=local_settings.WINTER_PEAK_MAGNITUDE_METRIC,
+							magnitude_values=local_settings.WINTER_PEAK_MAGNITUDE_VALUES,
 							start_timing_metric=local_settings.WINTER_PEAK_START_TIMING_METRIC,
 							duration_metric=local_settings.WINTER_PEAK_DURATION_METRIC,
 							start_timing_vals=local_settings.WINTER_PEAK_START_TIMING_VALUES,
@@ -274,6 +292,7 @@ def winter_peak_flow_builder(segment_component,
 
 	return _generic_builder(segment_component,
 					magnitude_metric=magnitude_metric,
+					magnitude_values=magnitude_values,
 					start_timing_metric=start_timing_metric,
 					duration_metric=duration_metric,
 					start_timing_vals=start_timing_vals,

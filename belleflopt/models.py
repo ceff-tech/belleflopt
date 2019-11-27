@@ -125,8 +125,13 @@ class SegmentComponent(models.Model):
 	start_day = models.PositiveSmallIntegerField(null=True)  # we need to allow these to be null because of the way we build them
 	duration = models.PositiveSmallIntegerField(null=True)  # we're working in days right now - if we were working in seconds, we might consider a DurationField instead
 	duration_ramp = models.PositiveSmallIntegerField(null=True)
-	# end_day is a property calculated from start_day and duration
-	# end_day_ramp is a property calculated from start_day and duration_ramp
+
+	# these are the values, from the start timing definition, where we'll add the duration to.
+	duration_base = models.PositiveSmallIntegerField(null=True)
+	duration_ramp_base = models.PositiveSmallIntegerField(null=True)
+
+	# end_day is a property calculated from duration_base and duration
+	# end_day_ramp is a property calculated from duration_ramp_base and duration_ramp
 
 	minimum_magnitude_ramp = models.DecimalField(max_digits=10, decimal_places=2, null=True)
 	minimum_magnitude = models.DecimalField(max_digits=10, decimal_places=2, null=True)
@@ -172,11 +177,11 @@ class SegmentComponent(models.Model):
 
 	@property
 	def end_day(self):
-		return self.start_day + self.duration
+		return self.duration_base + self.duration
 
 	@property
 	def end_day_ramp(self):
-		return self.start_day + self.duration_ramp
+		return self.duration_ramp_base + self.duration_ramp
 
 
 class SegmentComponentDescriptor(models.Model):
