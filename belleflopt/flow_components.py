@@ -196,7 +196,7 @@ def spring_recession_builder(segment_component,
 								start_timing_metric=local_settings.SPRING_RECESSION_START_TIMING_METRIC,
 								duration_metric=local_settings.SPRING_RECESSION_DURATION_METRIC,
 								start_timing_vals=local_settings.SPRING_RECESSION_START_TIMING_VALUES,
-								duration_vals=local_settings.SPRING_RECESSION_START_TIMING_VALUES):
+								duration_vals=local_settings.SPRING_RECESSION_DURATION_VALUES):
 	try:
 		# Get the flow metric values specific to this segment, that match what we need as defined in local_settings
 		magnitude_top_definition = segment_component.descriptors.get(flow_metric__metric=magnitude_top_metric)
