@@ -40,15 +40,17 @@ BENEFIT_MAKER_MAP = {  # these are function names that will be looked up in flow
 }
 
 SUMMER_BASEFLOW_MAGNITUDE_METRIC = "DS_Mag_50"  # which modeled metric should we use for summer baseflow magnitude
+SUMMER_BASEFLOW_MAGNITUDE_VALUES = ("pct_10", "pct_25", "pct_75", "pct_90")  # which percentiles should form q1,q2, q3, and q4 of magnitude?
 SUMMER_BASEFLOW_START_TIMING_METRIC = "DS_Tim"  # which metric contains start timing for this flow component?
 SUMMER_BASEFLOW_START_TIMING_VALUES = ("pct_10", "pct_25")  # which fields on the start timing metric should be q1 and q2 for timing
 SUMMER_BASEFLOW_DURATION_METRIC = "DS_Dur_WS"  # which metric will have the duration value for summer?
-SUMMER_BASEFLOW_DURATION_VALUES = ("pct_75", "pct_90")  # Used to set q3 and q4 based on start timing values plus duration pulled from duration metric in fields specified here
+SUMMER_BASEFLOW_DURATION_VALUES = (("pct_25", "pct_75"), ("pct_25","pct_90"))  # Used to set q3 and q4 based on start timing values plus duration pulled from duration metric in fields specified here
 
 WINTER_PEAK_MAGNITUDE_METRIC = "Peak_50"  # which modeled metric should we use for winter peak magnitude
+WINTER_PEAK_MAGNITUDE_VALUES = ("pct_10", "pct_25", "pct_75", "pct_90")  # which percentiles should form q1,q2, q3, and q4 of magnitude?
 WINTER_PEAK_START_TIMING_METRIC = "Wet_Tim"  # which fields on the start timing metric should be q1 and q2 for timing
 WINTER_PEAK_START_TIMING_VALUES = ("pct_10", "pct_25")  # which fields on the start timing metric should be q1 and q2 for timing
-WINTER_PEAK_DURATION_VALUES = ("pct_75", "pct_90")  # Used to set q3 and q4 based on start timing values plus duration pulled from duration metric in fields specified here
+WINTER_PEAK_DURATION_VALUES = (("pct_25", "pct_75"), ("pct_25","pct_90"))  # Used to set q3 and q4 based on start timing values plus duration pulled from duration metric in fields specified here
 WINTER_PEAK_DURATION_METRIC = "Wet_BFL_Dur"
 
 WINTER_PEAK_EVENT_FREQUENCY_METRIC = "Peak_Fre_50"
@@ -58,16 +60,18 @@ WINTER_PEAK_EVENT_DURATION_VALUE = "pct_50"
 WINTER_PEAK_EVENT_STARTING_BENEFIT = 10  # normally benefit is "1" - so a benefit of 10 makes a winter flow much more beneficial, but it tails off quickly
 
 WINTER_BASEFLOW_MAGNITUDE_METRIC = "Wet_BFL_Mag_50"  # which modeled metric should we use for winter baseflow magnitude
+WINTER_BASEFLOW_MAGNITUDE_VALUES = ("pct_10", "pct_25", "pct_75", "pct_90")  # which percentiles should form q1,q2, q3, and q4 of magnitude?
 WINTER_BASEFLOW_START_TIMING_METRIC = "Wet_Tim"  # which metric contains start timing for this flow component?
 WINTER_BASEFLOW_START_TIMING_VALUES = ("pct_10", "pct_25")  # which fields on the start timing metric should be q1 and q2 for timing
 WINTER_BASEFLOW_DURATION_METRIC = "Wet_BFL_Dur"  # which metric will have the duration value for winter baseflow?
-WINTER_BASEFLOW_DURATION_VALUES = ("pct_75", "pct_90")  # Used to set q3 and q4 based on start timing values plus duration pulled from duration metric in fields specified here
+WINTER_BASEFLOW_DURATION_VALUES = (("pct_25", "pct_75"), ("pct_25","pct_90"))  # Used to set q3 and q4 based on start timing values plus duration pulled from duration metric in fields specified here
 
 FALL_INITIATION_MAGNITUDE_METRIC = ""  # which modeled metric should we use for fall initiation flow
+FALL_INITIATION_MAGNITUDE_VALUES = ("pct_10", "pct_25", "pct_75", "pct_90")  # which percentiles should form q1,q2, q3, and q4 of magnitude?
 FALL_INITIATION_START_TIMING_METRIC = ""  # which metric contains start timing for this flow component?
 FALL_INITIATION_START_TIMING_VALUES = ("pct_10", "pct_25")  # which fields on the start timing metric should be q1 and q2 for timing
 FALL_INITIATION_DURATION_METRIC = ""  # which metric will have the duration value for fall initiation flow?
-FALL_INITIATION_DURATION_VALUES = ("pct_75", "pct_90")  # Used to set q3 and q4 based on start timing values plus duration pulled from duration metric in fields specified here
+FALL_INITIATION_DURATION_VALUES = (("pct_25", "pct_75"), ("pct_25","pct_90"))  # Used to set q3 and q4 based on start timing values plus duration pulled from duration metric in fields specified here
 
 FALL_INITIATION_FREQUENCY = 1  # this only happens once in the season officially
 FALL_INITIATION_EVENT_STARTING_BENEFIT = 5  # normally benefit is "1" - so a benefit of 10 makes a winter flow much more beneficial, but it tails off quickly
@@ -75,10 +79,11 @@ FALL_INITIATION_EVENT_DURATION_VALUE = "pct_50"
 
 SPRING_RECESSION_MAGNITUDE_TOP_METRIC = "SP_Mag"  # which modeled metric should we use for summer baseflow magnitude
 SPRING_RECESSION_MAGNITUDE_BOTTOM_METRIC = "DS_Mag_50"  # which modeled metric should we use for summer baseflow magnitude
+SPRING_RECESSION_MAGNITUDE_VALUES = ("pct_10", "pct_25", "pct_75", "pct_90")  # which percentiles should form q1,q2, q3, and q4 of magnitude?
 SPRING_RECESSION_START_TIMING_METRIC = "SP_Tim"  # which metric contains start timing for this flow component?
 SPRING_RECESSION_START_TIMING_VALUES = ("pct_25", "pct_50")  # which fields on the start timing metric should be q1 and q2 for timing
 SPRING_RECESSION_DURATION_METRIC = "SP_Dur"  # which metric will have the duration value for summer?
-SPRING_RECESSION_DURATION_VALUES = ("pct_75", "pct_90")  # Used to set q3 and q4 based on start timing values plus duration pulled from duration metric in fields specified here
+SPRING_RECESSION_DURATION_VALUES = (("pct_50", "pct_75"), ("pct_50", "pct_90"))  # Used to set q3 and q4 based on start timing values plus duration pulled from duration metric in fields specified here
 SPRING_RECESSION_RATE_OF_CHANGE_METRIC = "SP_ROC"  # which metric will have the duration value for summer?
 SPRING_RECESSION_RATE_REDUCTION_VALUE = 0.5
 SPRING_RECESSION_RATE_VERY_STEEP_REDUCTION_VALUE = 0.2
