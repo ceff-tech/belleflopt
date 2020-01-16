@@ -318,8 +318,8 @@ def run_optimize_many():
 def _segment_plot_helper(function, segment_id, component_id, screen, output_path, **kwargs):
 	"""
 		A helper function handle plotting
-	:param function: a method on a benefit object that handles plotting and takes a paramter "screen" and "output_path"
-	                along with any other parmas
+	:param function: a method on a benefit object that handles plotting and takes a parameter "screen" and "output_path"
+	                along with any other params
 	:param segment_id: An NHDPlus COMID
 	:param component_id: A CEFF Flow Component ID
 	:param screen: when True, displays the plot on the screen

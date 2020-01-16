@@ -352,11 +352,11 @@ class BenefitBox(object):
 		q3_benefit = self.single_flow_benefit(self.flow_item._q3, day_of_year=day_of_year)
 		plt.scatter([self.flow_item._q1, self.flow_item._q2, self.flow_item._q3, self.flow_item._q4], [0, q2_benefit, q3_benefit, 0])
 
-		# label the qs
-		plt.text(self.flow_item._q1 + 6, -0.015, "q1", fontsize=9, fontstyle="italic")
-		plt.text(self.flow_item._q2 - 19, q2_benefit - 0.015, "q2", fontsize=9, fontstyle="italic")
-		plt.text(self.flow_item._q3 + 6, q3_benefit - 0.015, "q3", fontsize=9, fontstyle="italic")
-		plt.text(self.flow_item._q4 - 19, -0.015, "q4", fontsize=9, fontstyle="italic")
+		# label the "q"s as "v"s for the paper since they aren't all flow - also used for days
+		plt.text(self.flow_item._q1 + 6, -0.015, "v1", fontsize=9, fontstyle="italic")
+		plt.text(self.flow_item._q2 - 19, q2_benefit - 0.015, "v2", fontsize=9, fontstyle="italic")
+		plt.text(self.flow_item._q3 + 6, q3_benefit - 0.015, "v3", fontsize=9, fontstyle="italic")
+		plt.text(self.flow_item._q4 - 19, -0.015, "v4", fontsize=9, fontstyle="italic")
 
 		plt.ylim(-0.05, 1.05)
 		plt.title("Benefit for {} on day {}".format(self.name, day_of_year))
@@ -577,6 +577,25 @@ class PeakBenefitBox(BenefitBox):
 
 
 class RecessionBenefitBox(BenefitBox):
+	"""
+		This may need to be reworked, based on discussions with Sarah.
+
+		Recessions rates are almost *always* below 10%/day (more than 80% of the time in the Sierra). So, maybe we don't
+		need separate benefit for 10/90 and 25/75 so long as the upper bound is below 10%. Minimum duration of recession
+		should be 3 weeks - below that, there's not enough time for anything to happen.
+
+		Still, step down to 50% benefit if recession is above 10%.
+
+		Something is wrong with how it's calculating the box magnitude on goodyear's bar.
+
+		We might want to just look at kink points - we can get first and second order derivatives with numpy.diff (instead
+		of with current method) and then look at the first order for the longest contiguous range below 10% or the
+		segment's 90th percentile (whichever is smaller), then look at the second order for the kink points - most spots
+		should have very small second order derivatives, and within our contiguous stretches, it should be very low.
+		Maybe we could even find those stretches by looking for kink points on the second order derivative, then
+		slicing up the first order with those kink points and looking at the first rate of change (since we've already
+		determined w/second order that the ones that follow should be similar).
+	"""
 	normal_rates = None
 	steep_rates = None
 	fail_rate_of_change = None

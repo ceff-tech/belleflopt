@@ -1,6 +1,8 @@
 import django
 from django.db import models
 
+import numpy
+
 from belleflopt import flow_components
 
 from eflows_optimization import settings
@@ -47,6 +49,33 @@ class StreamSegment(models.Model):
 
 	def __str__(self):
 		return "Segment {}: {}".format(self.com_id, self.name)
+
+	def _make_benefits(self):
+		for component in self.segmentcomponent_set.all():
+			component.make_benefit()
+
+	def get_benefit_for_timeseries(self, timeseries, daily=False, collapse_function=numpy.max):
+		"""
+			Returns the total benefit on this stream segment for a time series. When daily is True, returns the benefit
+			by day
+		:param timeseries: A timeseries by day of WATER YEAR - index 0 is Oct 1, index 1 is Oct 2, index 364 is Sept 30, etc
+		:param daily: When True, returns a timeseries of benefit. When False, sums the daily benefit for a water year total
+		:param collapse_function: A numpy function like max, sum, min, etc that will let it collapse values for components
+								that overlap each other. Defaults to numpy.max
+		:return:
+		"""
+
+		benefits = numpy.zeros((5, 365))
+		index = 0
+		for component in self.segmentcomponent_set.all():
+			benefits[index] = component.benefit.get_benefit_for_timeseries(timeseries)
+			index += 1
+
+		daily_values = collapse_function(benefits, axis=0)
+		if daily:
+			return daily_values
+		else:
+			return numpy.sum(daily_values)
 
 	#def __init__(self):
 	#	"""

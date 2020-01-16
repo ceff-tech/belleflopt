@@ -146,9 +146,9 @@ def _generic_builder(segment_component,
 	"""
 	try:
 		# Get the flow metric values specific to this segment, that match what we need as defined in local_settings
-		magnitude_definition = segment_component.descriptors.get(flow_metric__metric=magnitude_metric)
-		start_timing_definition = segment_component.descriptors.get(flow_metric__metric=start_timing_metric)
-		end_duration_definition = segment_component.descriptors.get(flow_metric__metric=duration_metric)
+		magnitude_definition = segment_component.descriptors.filter(flow_metric__metric=magnitude_metric).first()
+		start_timing_definition = segment_component.descriptors.filter(flow_metric__metric=start_timing_metric).first()
+		end_duration_definition = segment_component.descriptors.filter(flow_metric__metric=duration_metric).first()
 	except ObjectDoesNotExist:  # if no metrics are assigned, we get ObjectDoesNotExist, so just return
 		log.debug("No metrics assigned for segment_component with segment {} and component {}".format(segment_component.stream_segment.com_id, segment_component.component.name))
 		return

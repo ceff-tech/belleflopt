@@ -288,7 +288,7 @@ def _validate_records(csv_path):
 	log.debug(max(all_numbers))
 
 
-def load_single_flow_metric_data(csv_path):
+def load_single_flow_metric_data(csv_path, com_id_field="COM_ID"):
 	"""
 		Given a CSV of modeled stream segment flow metric percentiles, loads this data. Does NOT fill in the actual
 		component values for the segments based on the loaded data though.
