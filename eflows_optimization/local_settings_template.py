@@ -46,15 +46,15 @@ SUMMER_BASEFLOW_START_TIMING_VALUES = ("pct_10", "pct_25")  # which fields on th
 SUMMER_BASEFLOW_DURATION_METRIC = "DS_Dur_WS"  # which metric will have the duration value for summer?
 SUMMER_BASEFLOW_DURATION_VALUES = (("pct_25", "pct_75"), ("pct_25","pct_90"))  # Used to set q3 and q4 based on start timing values plus duration pulled from duration metric in fields specified here
 
-WINTER_PEAK_MAGNITUDE_METRIC = "Peak_50"  # which modeled metric should we use for winter peak magnitude
+WINTER_PEAK_MAGNITUDE_METRIC = "Peak_2"  # which modeled metric should we use for winter peak magnitude
 WINTER_PEAK_MAGNITUDE_VALUES = ("pct_10", "pct_25", "pct_75", "pct_90")  # which percentiles should form q1,q2, q3, and q4 of magnitude?
 WINTER_PEAK_START_TIMING_METRIC = "Wet_Tim"  # which fields on the start timing metric should be q1 and q2 for timing
 WINTER_PEAK_START_TIMING_VALUES = ("pct_10", "pct_25")  # which fields on the start timing metric should be q1 and q2 for timing
 WINTER_PEAK_DURATION_VALUES = (("pct_25", "pct_75"), ("pct_25","pct_90"))  # Used to set q3 and q4 based on start timing values plus duration pulled from duration metric in fields specified here
 WINTER_PEAK_DURATION_METRIC = "Wet_BFL_Dur"
 
-WINTER_PEAK_EVENT_FREQUENCY_METRIC = "Peak_Fre_50"
-WINTER_PEAK_EVENT_DURATION_METRIC = "Peak_Dur_50"
+WINTER_PEAK_EVENT_FREQUENCY_METRIC = "Peak_Fre_2"
+WINTER_PEAK_EVENT_DURATION_METRIC = "Peak_Dur_2"
 WINTER_PEAK_EVENT_FREQUENCY_VALUE = "pct_50"  # which percentile should we use for
 WINTER_PEAK_EVENT_DURATION_VALUE = "pct_50"
 WINTER_PEAK_EVENT_STARTING_BENEFIT = 10  # normally benefit is "1" - so a benefit of 10 makes a winter flow much more beneficial, but it tails off quickly
@@ -66,11 +66,11 @@ WINTER_BASEFLOW_START_TIMING_VALUES = ("pct_10", "pct_25")  # which fields on th
 WINTER_BASEFLOW_DURATION_METRIC = "Wet_BFL_Dur"  # which metric will have the duration value for winter baseflow?
 WINTER_BASEFLOW_DURATION_VALUES = (("pct_25", "pct_75"), ("pct_25","pct_90"))  # Used to set q3 and q4 based on start timing values plus duration pulled from duration metric in fields specified here
 
-FALL_INITIATION_MAGNITUDE_METRIC = ""  # which modeled metric should we use for fall initiation flow
+FALL_INITIATION_MAGNITUDE_METRIC = "FA_Mag"  # which modeled metric should we use for fall initiation flow
 FALL_INITIATION_MAGNITUDE_VALUES = ("pct_10", "pct_25", "pct_75", "pct_90")  # which percentiles should form q1,q2, q3, and q4 of magnitude?
-FALL_INITIATION_START_TIMING_METRIC = ""  # which metric contains start timing for this flow component?
+FALL_INITIATION_START_TIMING_METRIC = "FA_Tim"  # which metric contains start timing for this flow component?
 FALL_INITIATION_START_TIMING_VALUES = ("pct_10", "pct_25")  # which fields on the start timing metric should be q1 and q2 for timing
-FALL_INITIATION_DURATION_METRIC = ""  # which metric will have the duration value for fall initiation flow?
+FALL_INITIATION_DURATION_METRIC = "FA_Dur"  # which metric will have the duration value for fall initiation flow?
 FALL_INITIATION_DURATION_VALUES = (("pct_25", "pct_75"), ("pct_25","pct_90"))  # Used to set q3 and q4 based on start timing values plus duration pulled from duration metric in fields specified here
 
 FALL_INITIATION_FREQUENCY = 1  # this only happens once in the season officially
@@ -95,26 +95,15 @@ SPRING_RECESSION_MIN_TIME_BEFORE_MAX_RATE_FAIL = 7  # how many *consecutive* day
 # The names and folder of the FFM data to load
 LOAD_FFM_FOLDER = os.path.join(BASE_DIR, "data", "ffm_modeling", "Data", "NHD FFM predictions")
 
-LOAD_FFMS = [SUMMER_BASEFLOW_MAGNITUDE_METRIC,
-				SUMMER_BASEFLOW_DURATION_METRIC,
-				SUMMER_BASEFLOW_START_TIMING_METRIC,
-				WINTER_PEAK_DURATION_METRIC,
-				WINTER_PEAK_START_TIMING_METRIC,
-				WINTER_PEAK_MAGNITUDE_METRIC,
-				WINTER_PEAK_EVENT_FREQUENCY_METRIC,
-				WINTER_PEAK_EVENT_DURATION_METRIC,
-				WINTER_BASEFLOW_DURATION_METRIC,
-				WINTER_BASEFLOW_MAGNITUDE_METRIC,
-				WINTER_BASEFLOW_START_TIMING_METRIC,
-				FALL_INITIATION_MAGNITUDE_METRIC,
-				FALL_INITIATION_START_TIMING_METRIC,
-				FALL_INITIATION_DURATION_METRIC,
-				SPRING_RECESSION_DURATION_METRIC,
-				SPRING_RECESSION_MAGNITUDE_TOP_METRIC,
-				SPRING_RECESSION_MAGNITUDE_BOTTOM_METRIC,
-				SPRING_RECESSION_RATE_OF_CHANGE_METRIC,
-				SPRING_RECESSION_START_TIMING_METRIC,
-]
+# we make a set before making it a list again so that if any of the metrics are the same, we don't load them twice
+LOAD_FFMS = list(
+	{SUMMER_BASEFLOW_MAGNITUDE_METRIC, SUMMER_BASEFLOW_DURATION_METRIC, SUMMER_BASEFLOW_START_TIMING_METRIC,
+	 WINTER_PEAK_DURATION_METRIC, WINTER_PEAK_START_TIMING_METRIC, WINTER_PEAK_MAGNITUDE_METRIC,
+	 WINTER_PEAK_EVENT_FREQUENCY_METRIC, WINTER_PEAK_EVENT_DURATION_METRIC, WINTER_BASEFLOW_DURATION_METRIC,
+	 WINTER_BASEFLOW_MAGNITUDE_METRIC, WINTER_BASEFLOW_START_TIMING_METRIC, FALL_INITIATION_MAGNITUDE_METRIC,
+	 FALL_INITIATION_START_TIMING_METRIC, FALL_INITIATION_DURATION_METRIC, SPRING_RECESSION_DURATION_METRIC,
+	 SPRING_RECESSION_MAGNITUDE_TOP_METRIC, SPRING_RECESSION_MAGNITUDE_BOTTOM_METRIC,
+	 SPRING_RECESSION_RATE_OF_CHANGE_METRIC, SPRING_RECESSION_START_TIMING_METRIC})
 
 LOAD_FFM_SUFFIX = "_NHD_pred_range.csv"
 

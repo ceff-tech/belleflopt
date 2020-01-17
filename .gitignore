@@ -5,6 +5,10 @@
 
 .idea/*
 
+data/ffm_modeling/Data/NHD FFM predictions by WYT/*
+data/ffm_modeling/Data/NHD Attributes/WYT_ALL_COMIDS.csv
+data/ffm_modeling/Data/NHD FFM predictions/old_names/*
+
 # Gradle and Maven with auto-import
 # When using Gradle or Maven with auto-import, you should exclude module files,
 # since they will be recreated, and may cause churn.  Uncomment if using
