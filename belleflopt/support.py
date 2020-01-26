@@ -3,6 +3,7 @@ import os
 import logging
 import random
 
+import arrow
 from matplotlib import pyplot as plt
 from platypus import NSGAII, SMPSO, GDE3, SPEA2
 
@@ -14,6 +15,32 @@ from belleflopt import comet
 log = logging.getLogger("eflows.optimization.support")
 
 NO_DOWNSTREAM = ("OCEAN", "MEXICO", "CLOSED_BASIN")
+
+
+def day_of_water_year(year, month, day):
+	eval_date = arrow.Arrow(year, month, day)
+
+	if month >= 10:
+		eval_year = year
+	else:
+		eval_year = year - 1  # if we're in Jan-Sep, the start of the water year was last year
+
+	water_year_start = arrow.Arrow(eval_year, 10, 1)
+
+	return (eval_date - water_year_start).days + 1  # add one because otherwise everything would be zero-indexed
+
+
+def water_year(year, month):
+	"""
+		Given a year and a month, returns the water year
+	:param year:
+	:param month:
+	:return:
+	"""
+	if month >= 10:
+		return year + 1
+	else:
+		return year
 
 
 def reset():

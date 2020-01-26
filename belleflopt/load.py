@@ -2,12 +2,14 @@ import os
 from operator import attrgetter
 import logging
 import csv
+import sqlite3
 
 import django
 import fiona
+import arrow
 
 from eflows_optimization import settings
-from belleflopt import models
+from belleflopt import models, support
 
 log = logging.getLogger("belleflopt.load")
 
@@ -104,30 +106,30 @@ def load_flow_metrics():
 	                  metric="Peak_10",
 	                  description="Peak-flow magnitude (10 year/10% exeedance values of annual peak flow --> 2, 5, and 10 year recurrence intervals)")
 	wet_peak.metrics.create(characteristic="Magnitude (cfs)",
-	                  metric="Peak_20",
+	                  metric="Peak_5",
 	                  description="Peak-flow magnitude (5 year/20% exeedance values of annual peak flow --> 2, 5, and 10 year recurrence intervals)")
 	wet_peak.metrics.create(characteristic="Magnitude (cfs)",
-	                  metric="Peak_50",
+	                  metric="Peak_2",
 	                  description="Peak-flow magnitude (2 year/50% exeedance values of annual peak flow --> 2, 5, and 10 year recurrence intervals)")
 
 	wet_peak.metrics.create(characteristic="Timing (date)",
 	                  metric="Peak_Dur_10",
 	                  description="Duration of peak flows over wet season for 10% exceedence/10 year recurrence (cumulative number of days in which a given peak-flow recurrence interval is exceeded in a year).")
 	wet_peak.metrics.create(characteristic="Timing (date)",
-	                  metric="Peak_Dur_20",
+	                  metric="Peak_Dur_5",
 	                  description="Duration of peak flows over wet season 20% exceedence/5 year recurrence (cumulative number of days in which a given peak-flow recurrence interval is exceeded in a year).")
 	wet_peak.metrics.create(characteristic="Timing (date)",
-	                  metric="Peak_Dur_50",
+	                  metric="Peak_Dur_2",
 	                  description="Duration of peak flows over wet season 50% exceedence/2 year recurrence (cumulative number of days in which a given peak-flow recurrence interval is exceeded in a year).")
 
 	wet_peak.metrics.create(characteristic="Duration (days)",
 	                  metric="Peak_Fre_10",
 	                  description="Frequency of peak flow events over wet season (number of times in which a given peak-flow recurrence interval is exceeded in a year).")
 	wet_peak.metrics.create(characteristic="Duration (days)",
-	                  metric="Peak_Fre_20",
+	                  metric="Peak_Fre_5",
 	                  description="Frequency of peak flow events over wet season (number of times in which a given peak-flow recurrence interval is exceeded in a year).")
 	wet_peak.metrics.create(characteristic="Duration (days)",
-	                  metric="Peak_Fre_50",
+	                  metric="Peak_Fre_2",
 	                  description="Frequency of peak flow events over wet season (number of times in which a given peak-flow recurrence interval is exceeded in a year).")
 
 	# Spring Recession metrics
@@ -499,3 +501,51 @@ def check_missing(filepath=r"C:\Users\dsx\Dropbox\Code\belleflopt\data\ffm_model
 				log.warning("Missing segment {}. Missing Count: {}".format(int(row["COMID"]), missing_count))
 
 		log.warning("missing IDs: {}".format(str(missing_comids)))
+
+
+def load_flows(database=os.path.join(settings.BASE_DIR, "data", "navarro_flows", "data_processing", "navarro_data.sqlite"),
+				table="estimated_daily",
+				comid_field = "comid",
+				year_field="est_year",
+				month_field="est_month",
+				day_field="est_day",
+				flow_field="estimated_value",
+				water_years=(2010, 2011),
+				clear_existing=True):
+
+	if clear_existing:
+		log.info("Deleting existing flow data")
+		models.DailyFlow.objects.all().delete()
+
+	db_connection = sqlite3.connect(database)
+	cursor = db_connection.cursor()
+
+	# query gets all the flows for a single water year when properly parameterized
+	query = """SELECT {}, {}, {}, {}, {}
+				FROM {}
+				WHERE ({} >= 10 AND {} = ?)
+				   OR ({} < 10 AND {} = ?)
+	""".format(comid_field, year_field, month_field, day_field, flow_field, table,
+	           month_field, year_field, month_field, year_field,)  # note string interpolation - not a web safe query!
+
+	flow_objects = []
+
+	for year in water_years:
+		log.info("Loading Water Year {} flows".format(year))
+		flows = cursor.execute(query, (year - 1, year))
+
+		log.info("Constructing records")
+		for flow in flows:
+			flow_objects.append(models.DailyFlow(
+				stream_segment=models.StreamSegment.objects.get(com_id=flow[0]),
+				flow_date=arrow.Arrow(flow[1], flow[2], flow[3]).date(),
+				water_year=support.water_year(year=flow[1], month=flow[2]),
+				water_year_day=support.day_of_water_year(year=flow[1], month=flow[2], day=flow[3]),
+				estimated_flow=flow[4]
+			))
+
+	log.info("Bulk inserting records")
+	models.DailyFlow.objects.bulk_create(flow_objects)
+
+	cursor.close()
+	db_connection.close()

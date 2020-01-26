@@ -6,3 +6,4 @@ matplotlib
 seaborn
 comet_ml
 fiona
+arrow

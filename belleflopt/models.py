@@ -2,6 +2,8 @@ import django
 from django.db import models
 
 import numpy
+import seaborn
+from matplotlib import pyplot as plt
 
 from belleflopt import flow_components
 
@@ -53,6 +55,16 @@ class StreamSegment(models.Model):
 	def _make_benefits(self):
 		for component in self.segmentcomponent_set.all():
 			component.make_benefit()
+
+	def get_flows_for_water_year_as_list(self, water_year):
+		flows = self.dailyflow_set.filter(water_year=water_year).order_by("water_year_day")
+		return [float(flow.estimated_flow) for flow in flows]
+
+	def plot_daily_flows_for_water_year(self, water_year, show_plot=True):
+		flows = self.get_flows_for_water_year_as_list(water_year)
+		seaborn.lineplot(range(1, len(flows)+1), flows)
+		if show_plot:
+			plt.show()
 
 	def get_benefit_for_timeseries(self, timeseries, daily=False, collapse_function=numpy.max):
 		"""
@@ -171,12 +183,17 @@ class SegmentComponent(models.Model):
 	stream_segment = models.ForeignKey(StreamSegment, on_delete=models.DO_NOTHING)
 	component = models.ForeignKey(FlowComponent, on_delete=models.DO_NOTHING)
 
+	# descriptors - backreference to SegmentComponentDescriptors
+
 	def build(self, builder=None):
 		"""
 			The builder should fill in the main values of this flow component based on the values of its flow metrics
 		:param builder:
 		:return:
 		"""
+
+		if len(self.descriptors.all()) == 0:
+			raise ValueError("Cannot build - no segment component descriptors attached for segment {} and component {}".format(self.stream_segment.com_id, self.component.ceff_id))
 
 		if builder is None:  # if a builder isn't passed in, get the default one from flow_components.py as defined for this component type in local_settings
 			builder = getattr(flow_components, settings.COMPONENT_BUILDER_MAP[self.component.ceff_id])
@@ -290,10 +307,17 @@ class HUC(models.Model):
 		return self.huc_id[:8]
 
 
+class DailyFlow(models.Model):
+	stream_segment = models.ForeignKey(StreamSegment, on_delete=models.CASCADE)
+	flow_date = models.DateField()
+	water_year = models.SmallIntegerField()
+	water_year_day = models.SmallIntegerField()
+	estimated_flow = models.DecimalField(max_digits=10, decimal_places=3)
+
+
 class ModelRun(models.Model):
 	name = models.CharField(max_length=255, null=True, blank=True)
 	date_run = models.DateTimeField(default=django.utils.timezone.now)
-
 
 class FlowBenefitResult(models.Model):
 	"""
