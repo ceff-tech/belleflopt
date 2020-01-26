@@ -9,6 +9,9 @@ data/ffm_modeling/Data/NHD FFM predictions by WYT/*
 data/ffm_modeling/Data/NHD Attributes/WYT_ALL_COMIDS.csv
 data/ffm_modeling/Data/NHD FFM predictions/old_names/*
 
+data/navarro_flows/data_processing/*
+data/navarro_flows/videos/*
+
 # Gradle and Maven with auto-import
 # When using Gradle or Maven with auto-import, you should exclude module files,
 # since they will be recreated, and may cause churn.  Uncomment if using
