@@ -306,18 +306,29 @@ class HUC(models.Model):
 	def huc_8(self):
 		return self.huc_id[:8]
 
-
-class DailyFlow(models.Model):
-	stream_segment = models.ForeignKey(StreamSegment, on_delete=models.CASCADE)
-	flow_date = models.DateField()
-	water_year = models.SmallIntegerField()
-	water_year_day = models.SmallIntegerField()
-	estimated_flow = models.DecimalField(max_digits=10, decimal_places=3)
-
-
 class ModelRun(models.Model):
 	name = models.CharField(max_length=255, null=True, blank=True)
 	date_run = models.DateTimeField(default=django.utils.timezone.now)
+
+
+class DailyFlow(models.Model):
+	model_run = models.ForeignKey(ModelRun, on_delete=models.DO_NOTHING)
+	stream_segment = models.ForeignKey(StreamSegment, on_delete=models.CASCADE, related_name="daily_flows")
+	flow_date = models.DateField()
+	water_year = models.SmallIntegerField()
+	water_year_day = models.SmallIntegerField()
+	estimated_total_flow = models.DecimalField(max_digits=10, decimal_places=3)
+
+	def raw_upstream_flow(self):
+		"""
+			Gets the available flow from upstream sources without diversions so that we can determine how much flow
+			originates in this segment
+		:return:
+		"""
+
+		upstream_flows = self.stream_segment.upstream.daily_flows.filter(model_run=self.model_run)  # get all the daily flows that are upstream and for the same model
+		total_upstream_flow = sum([flow.estimated_total_flow for flow in upstream_flows])
+
 
 class FlowBenefitResult(models.Model):
 	"""

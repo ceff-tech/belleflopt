@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 import seaborn
 from matplotlib.colors import ListedColormap
 
-from eflows_optimization.settings import DEFAULT_COLORRAMP
+from eflows_optimization.settings import DEFAULT_COLORRAMP, GRAYSCALE_COLORRAMP
 
 log = logging.getLogger("belleflopt.benefit")
 
@@ -367,7 +367,7 @@ class BenefitBox(object):
 
 	def plot_annual_benefit(self,
 							screen=True,
-							palette=ListedColormap(seaborn.color_palette(DEFAULT_COLORRAMP)),
+							palette=ListedColormap(seaborn.color_palette(GRAYSCALE_COLORRAMP)),
 							y_lim=None):
 
 		plot = plt.imshow(numpy.swapaxes(self.annual_benefit, 0, 1),
@@ -380,8 +380,8 @@ class BenefitBox(object):
 		plt.ylim(*y_limits)
 		plt.xlim(*self.date_item.plot_window())
 		plt.title("Annual base benefit for {} on segment {}".format(self.component_name, self.segment_id))
-		plt.ylabel("Flow/Q (CFS)")
-		plt.xlabel("Day of Water Year")
+		plt.ylabel("Flow in CFS (Q)")
+		plt.xlabel("Day of Water Year (D)")
 		plt.colorbar()
 		if screen:
 			plt.show()
