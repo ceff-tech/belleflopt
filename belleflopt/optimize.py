@@ -1,6 +1,7 @@
 import logging
 import random
 import collections
+import copy
 
 import numpy
 from platypus import Problem, Real
@@ -24,12 +25,9 @@ class InitialFlowsGenerator(Generator):
 	def generate(self, problem):
 		solution = Solution(problem)
 
-		initial_values = [huc.initial_available_water for huc in problem.hucs]
-		values = []
-		for value in initial_values:
-			values.append(value * ((random.random()*0.2)+0.8))  # multiply *0.2 so that the scaling power is minimal (0<value<0.2), then add 0.8 so that it could shrink it by up to 20% - should mean all starting solutions are feasible
+		initial_values = [(random.random()*0.2)+0.8, ] * problem.decision_variables  # start with almost everything for the environment
+		solution.variables = initial_values
 
-		solution.variables = values
 		return solution
 
 
@@ -114,10 +112,18 @@ class ModelStreamSegment(object):
 
 	@property
 	def local_available(self):
+		"""
+			How much water is available here from upsteam and local sources?
+		:return:
+		"""
 		return self._local_available + self.upstream_available
 
 	@property
 	def upstream_available(self):
+		"""
+			How much water is available here from upstream?
+		:return:
+		"""
 		if self._upstream_available is not None:  # short circuit, but if we don't have it then we need to get it.
 			return self._upstream_available
 
@@ -190,6 +196,10 @@ class StreamNetwork(object):
 		self.economic_benefit_calculator.units_of_water = economic_water_total
 		economic_benefit = self.economic_benefit_calculator.get_benefit()
 
+		#print("Available Water: {}".format(numpy.sum([segment._local_available for segment in self.stream_segments.values()])))
+		#print("Env Water, Ben: {}, {}".format(numpy.sum([segment.eflows_water for segment in self.stream_segments.values()]), eflow_benefit))
+		#print("Eco Water, Ben: {}, {}".format(economic_water_total, economic_benefit))
+
 		# we could return the individual benefits here, but we'll save that for another time
 		return {
 			"environmental_benefit": eflow_benefit,
@@ -253,6 +263,7 @@ class StreamNetworkProblem(Problem):
 		for flow in all_flows:
 			total_water += flow.estimated_local_flow
 
+		print("Total Water Available: {}".format(total_water))
 		return float(total_water) * proportion
 
 	def evaluate(self, solution):

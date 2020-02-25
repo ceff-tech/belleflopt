@@ -72,7 +72,9 @@ def run_optimize_new(algorithm=NSGAII, NFE=1000, popsize=25, starting_water_pric
 	stream_network = optimize.StreamNetwork(model_run.segments, 2010, model_run)
 	problem = optimize.StreamNetworkProblem(stream_network, starting_water_price=starting_water_price, total_units_needed_factor=economic_water_proportion)
 
-	eflows_opt = algorithm(problem, population_size=popsize)
+	log.info("Looking for {} CFS of water to extract".format(problem.stream_network.economic_benefit_calculator.total_units_needed))
+
+	eflows_opt = algorithm(problem, generator=optimize.InitialFlowsGenerator(), population_size=popsize)
 
 	eflows_opt.run(NFE)
 
