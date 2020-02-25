@@ -174,6 +174,10 @@ class StreamNetwork(object):
 			segment.stream_segment.ready_run()  # attaches the benefit objects so that we can evaluate benefit
 
 	def set_segment_allocations(self, allocations):
+		self.reset()
+
+		allocations = numpy.reshape(allocations, (-1, 365))
+
 		allocation_index = 0
 		for segment in self.stream_segments.values():
 			segment.set_allocation(allocations[allocation_index])
@@ -193,7 +197,7 @@ class StreamNetwork(object):
 		}
 
 	def reset(self):
-		for segment in self.stream_segments:
+		for segment in self.stream_segments.values():
 			segment.reset()
 
 
@@ -211,7 +215,7 @@ class StreamNetworkProblem(Problem):
 				that flow value in each HUC is less than or equal to the sum of that HUC's initial flow
 				plus everything coming from upstream.
 	"""
-	def __init__(self, stream_network, starting_water_price=800, total_units_needed_factor=0.25, objectives=2, *args):
+	def __init__(self, stream_network, starting_water_price=800, total_units_needed_factor=0.99, objectives=2, *args):
 		"""
 
 		:param decision_variables: when this is set to None, it will use the number of HUCs as the number of decision

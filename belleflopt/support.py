@@ -43,7 +43,7 @@ def water_year(year, month):
 		return year
 
 
-def run_optimize_new(algorithm=NSGAII, NFE=1000, popsize=25, seed=20200224, model_run_name="navarro_thesis", show_plots=True):
+def run_optimize_new(algorithm=NSGAII, NFE=1000, popsize=25, starting_water_price=800, economic_water_proportion = 0.99, seed=20200224, model_run_name="navarro_thesis", show_plots=True):
 	"""
 		Runs a single optimization run, defaulting to 1000 NFE using NSGAII. Won't output plots to screen
 		by default. Outputs tables and figures to the data/results folder.
@@ -56,38 +56,44 @@ def run_optimize_new(algorithm=NSGAII, NFE=1000, popsize=25, seed=20200224, mode
 	:return: None
 	"""
 
-	#experiment = comet.new_experiment()
-	#experiment.log_parameters({"algorithm": algorithm, "NFE": NFE, "popsize": popsize, "seed": seed})
+	experiment = comet.new_experiment()
+	experiment.log_parameters({"algorithm": algorithm,
+	                           "NFE": NFE,
+	                           "popsize": popsize,
+	                           "seed": seed,
+	                           "starting_water_price":starting_water_price,
+	                           "economic_water_proportion": economic_water_proportion
+	                           })
 
 	random.seed = seed
 
 	model_run = models.ModelRun.objects.get(name=model_run_name)
 
 	stream_network = optimize.StreamNetwork(model_run.segments, 2010, model_run)
-	problem = optimize.StreamNetworkProblem(stream_network)
+	problem = optimize.StreamNetworkProblem(stream_network, starting_water_price=starting_water_price, total_units_needed_factor=economic_water_proportion)
 
 	eflows_opt = algorithm(problem, population_size=popsize)
 
 	eflows_opt.run(NFE)
 
 	_plot(eflows_opt, "Pareto Front: {} NFE, PopSize: {}".format(NFE, popsize),
-		  				#experiment=experiment,
+		  				experiment=experiment,
 						show=show_plots,
-						#filename=os.path.join(settings.BASE_DIR, "data", "results", "pareto_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__, str(seed), str(NFE), str(popsize)))
+						filename=os.path.join(settings.BASE_DIR, "data", "results", "pareto_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__, str(seed), str(NFE), str(popsize)))
 	        )
 
 	_plot_convergence(problem.iterations, problem.objective_1,
 					  "Environmental Benefit v NFE. Alg: {}, PS: {}, Seed: {}".format(algorithm.__name__, str(popsize), str(seed)),
-					  	#experiment=experiment,
+					  	experiment=experiment,
 						show=show_plots,
-						#filename=os.path.join(settings.BASE_DIR, "data", "results", "convergence_obj1_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__,str(seed),str(NFE),str(popsize)))
+						filename=os.path.join(settings.BASE_DIR, "data", "results", "convergence_obj1_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__,str(seed),str(NFE),str(popsize)))
 	                  )
 
 	_plot_convergence(problem.iterations, problem.objective_2, "Economic Benefit v NFE Alg: {}, PS: {}, Seed: {}".format(algorithm.__name__, str(popsize), str(seed)),
-					  #experiment=experiment,
+					  experiment=experiment,
 					  show=show_plots,
-					  #filename=os.path.join(settings.BASE_DIR, "data", "results", "convergence_obj2_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__, str(seed),
-						#															   str(NFE), str(popsize)))
+					  filename=os.path.join(settings.BASE_DIR, "data", "results", "convergence_obj2_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__, str(seed),
+																				   str(NFE), str(popsize)))
 	)
 
 
@@ -95,7 +101,7 @@ def run_optimize_new(algorithm=NSGAII, NFE=1000, popsize=25, seed=20200224, mode
 	#output_table(problem.hucs, output_path=file_path)
 
 	#experiment.log_asset(file_path, "results.csv")
-	#experiment.end()
+	experiment.end()
 
 	#return file_path
 
@@ -168,20 +174,18 @@ def run_optimize(algorithm=NSGAII, NFE=1000, popsize=25, seed=20181214, show_plo
 
 
 def _plot(optimizer, title, experiment=None, filename=None, show=False):
-	x = [s.objectives[0] for s in optimizer.result if s.feasible]
-	y = [s.objectives[1] for s in optimizer.result if s.feasible]
+	x = [s.objectives[0] for s in optimizer.result]
+	y = [s.objectives[1] for s in optimizer.result]
 
 	if experiment is not None:
-		comet.log_metric("NeedsMet", x, experiment=experiment)  # log the resulting values
-		comet.log_metric("SecondAxis", y, experiment=experiment)
+		comet.log_metric("EnvironmentalBenefit", x, experiment=experiment)  # log the resulting values
+		comet.log_metric("EconomicBenefit", y, experiment=experiment)
 
 	log.debug("X: {}".format(x))
 	log.debug("Y: {}".format(y))
 	plt.scatter(x, y)
-	#plt.xlim([min(x)-0.1, max(x)+0.1])
-	#plt.ylim([min(y)-0.1, max(y)+0.1])
-	plt.xlabel("Total Needs Satisfied")
-	plt.ylabel("Minimum percent of HUC needs satisfied")
+	plt.xlabel("Environmental Flow Benefit")
+	plt.ylabel("Economic Benefit")
 	plt.title(title)
 
 	if experiment is not None:
@@ -195,7 +199,7 @@ def _plot(optimizer, title, experiment=None, filename=None, show=False):
 	plt.close()
 
 
-def _plot_convergence(i, objective, title, experiment, filename=None, show=False):
+def _plot_convergence(i, objective, title, experiment=None, filename=None, show=False):
 	x = i
 	y = objective
 	plt.plot(x, y, color='steelblue', linewidth=1)
@@ -205,7 +209,8 @@ def _plot_convergence(i, objective, title, experiment, filename=None, show=False
 	plt.ylabel("Objective Value")
 	plt.title(title)
 
-	experiment.log_figure(title)
+	if experiment:
+		experiment.log_figure(title)
 
 	if filename:
 		plt.savefig(fname=filename)
