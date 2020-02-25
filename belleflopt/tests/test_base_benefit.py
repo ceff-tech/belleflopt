@@ -16,18 +16,14 @@ class TestPeakBenefit(TestCase):
 
 		gy_segment = models.StreamSegment(com_id=self.goodyears_bar, routed_upstream_area=0, total_upstream_area=0)
 		gy_segment.save()
-		gy_segment_component = models.SegmentComponent(stream_segment=gy_segment, component=models.FlowComponent.objects.get(ceff_id="Peak"))
+		gy_segment_component = models.SegmentComponent(stream_segment=gy_segment, component=models.FlowComponent.objects.get(ceff_id="DS"))
 		gy_segment_component.save()
 
 				# p10, p25, p50, p75, p90
-		ffms = {"Peak_5": [5456.749065, 8858.950927, 13062.81469, 13482.78089, 16421.79807],  # magnitude
-		        "Peak_2": [2903.03912950307,4493.50108204508,5484.65785703542,6384.78178673819,14058.5113579775,],
-		        "Wet_Tim": [46.385,58.575,72.425,95.1166666666666,118.79],
-		        "Wet_BFL_Dur": [66.4875,94.09375,137.3875,173.8125,197.043333333334],
-		        "Peak_Dur_5": [1,1,2,3,6],
-		        "Peak_Dur_2": [1,1,4,10,25],
-		        "Peak_Fre_5": [1,1,1,2,3,],
-		        "Peak_Fre_2": [1,1,2,3,5,],
+		ffms = {"DS_Dur_WS": [84.67, 114.63, 145.00, 176.50, 201.52],
+		        "DS_Mag_50": [35.50, 53.72, 83.01, 122.76, 144.62],
+		        "DS_Mag_90": [72.09, 101.84, 156.52, 233.21, 333.91],
+		        "DS_Tim": [278.82, 288.00, 300.90, 311.50, 324.13,],
 		        }
 
 		# attach the descriptors
@@ -71,25 +67,6 @@ class TestPeakBenefit(TestCase):
 		                            188, 193, 195, 188, 182, 179, 177, 221, 234, 218, 275, 222, 203, 196, 191, 187, 184,
 		                            181, 180, 202, 227, 241]
 
-	def test_basic_print(self):
-		self.benefit = benefit.PeakBenefitBox(low_flow=2000,
-		                                      high_flow=6000,
-		                                      start_day_of_water_year=120,
-		                                      end_day_of_water_year=240,
-		                                      flow_margin=0.1)
-
-		self.benefit.setup_peak_flows(peak_frequency=15, median_duration=50, max_benefit=10)
-		original_benefit, base_benefit = self.benefit.get_benefit_for_timeseries(self.goodyears_bar_flows, testing=True)
-		self._plot_benefit(base_benefit, original_benefit,
-		                   save_path=r"C:\Users\dsx\Dropbox\Graduate\Thesis\figures\peak_benefit_examples\basic_peak_benefit.png")
-
-		self.benefit.plot_annual_benefit(screen=False)
-		seaborn.lineplot(self.x, self.goodyears_bar_flows, color="black")
-		plt.savefig(r"C:\Users\dsx\Dropbox\Graduate\Thesis\figures\peak_benefit_examples\basic_hydrograph_annual.png")
-		plt.show()
-
-		self.benefit._plot_max_curve(save_path=r"C:\Users\dsx\Dropbox\Graduate\Thesis\figures\peak_benefit_examples\basic_curve.png")
-
 	def _plot_benefit(self, peak_benefit, base_benefit, segment_component=None, save_path=None):
 		base_data = {
 			"Days": self.x,
@@ -111,17 +88,18 @@ class TestPeakBenefit(TestCase):
 		plt.show()
 
 	def test_segment_data(self):
-		segment_component = models.SegmentComponent.objects.get(component__ceff_id="Peak",
+		segment_component = models.SegmentComponent.objects.get(component__ceff_id="DS",
 		                                                        stream_segment__com_id=self.goodyears_bar)
 		segment_component.make_benefit()
 
-		original_benefit, peak_benefit = segment_component.benefit.get_benefit_for_timeseries(self.goodyears_bar_flows, testing=True)
-		self._plot_benefit(peak_benefit, original_benefit, segment_component,
-		                   save_path=r"C:\Users\dsx\Dropbox\Graduate\Thesis\figures\peak_benefit_examples\goodyears_peak_benefit.png")
-		segment_component.benefit.plot_annual_benefit(screen=False, y_lim=(0, 16000))
-		seaborn.lineplot(self.x, self.goodyears_bar_flows, color="black")
-		plt.savefig(r"C:\Users\dsx\Dropbox\Graduate\Thesis\figures\peak_benefit_examples\goodyears_hydrograph_annual.png",
+
+		segment_component.benefit.plot_annual_benefit(screen=False, y_lim=(10, 175))
+		#seaborn.lineplot(self.x, self.goodyears_bar_flows, color="black")
+		plt.savefig(r"C:\Users\dsx\Dropbox\Graduate\Thesis\figures\base_benefit_examples\goodyears_dry_season.png",
 		            dpi=600)
 		plt.show()
 
-		segment_component.benefit._plot_max_curve(save_path=r"C:\Users\dsx\Dropbox\Graduate\Thesis\figures\peak_benefit_examples\goodyears_curve.png")
+		segment_component.benefit.plot_flow_benefit(screen=False, day_of_year=90)
+		plt.savefig(r"C:\Users\dsx\Dropbox\Graduate\Thesis\figures\base_benefit_examples\goodyears_dry_season_day90.png",
+		            dpi=600)
+		plt.show()

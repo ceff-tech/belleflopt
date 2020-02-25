@@ -145,7 +145,7 @@ LOGGING = {
 
         'belleflopt': {
             'handlers': ['console', 'file_debug'],
-            'level': 'DEBUG'
+            'level': 'INFO'
         },
     },
 

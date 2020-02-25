@@ -496,7 +496,6 @@ class PeakBenefitBox(BenefitBox):
 				this function becomes a straight line at 1.
 			"""
 		ben = float(base_benefit) * (float(max_benefit) ** (-float(self.peak_intraevent_reduction_factor) * float(day_of_current_event - self.peak_duration)))
-		print(ben)
 		return ben
 
 	def _plot_max_curve(self, screen=True, save_path=None):

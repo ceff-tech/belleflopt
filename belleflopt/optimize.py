@@ -1,15 +1,17 @@
 import logging
 import random
+import collections
 
 import numpy
 from platypus import Problem, Real
 from platypus.operators import Generator, Solution
 
 from belleflopt import models
+from belleflopt import economic_components
 
 log = logging.getLogger("eflows.optimization")
 
-random.seed = 20181214
+random.seed = 20200224
 
 
 class InitialFlowsGenerator(Generator):
@@ -48,6 +50,228 @@ class SparseList(list):
 			return list.__getitem__(self, index)
 		except IndexError:
 			return None
+
+
+class ModelStreamSegment(object):
+	"""
+		# I think maybe we'd be better off making a simple tree structure here than relying on Django - should be much faster.
+		# We can create the tree on model startup and it'll let us route daily flows through the network much faster.
+		# we'll have a segment class with attributes for downstream instance, and we'll attach the django segment too so that we
+		# can send off flows for evaluation without another lookup. If we give it its decision variable as an array and it
+		# provides the extracted, local, and available downstream values, that's what we need (it can do the whole year at once).
+		# We need a recursive function that allocates the flows through the network, looking upstream. It can stop and use the total
+		# upstream that's already calculated once it hits spots that have already done it. PITA to redevelop this!
+
+		# number of decision variables = number of segments in network * days in water year
+		# numpy reshape it so that we have a 2 dimensional array with days in water year columns and n segments rows
+		# each value is the proportion of available water we want to reserve in the stream for environmental flows
+		# we have a similar array for locally available water. We then need to create the upstream water array from
+		# traversing the network and doing the allocations to each segment and each segment's downstream. If we do that
+		# and then translate it back out into a numpy array of the same shape, we can get a total water array (upstream + local)
+		# then an environmental water array (total * decision variable array) and an economic water array(total * (1-decsion var array).
+		# can then put the economic through a single benefit calculation from the economic benefit item to get total economic benefit.
+		# for environmental benefit, we then need to iterate through each segment and give it its timeseries and have it return
+		# the total benefit for that segment. We should track each segment's benefit and total economic benefit separately, and
+		# also then sum all segment economic benefits together to get total environmental benefit.
+	"""
+
+	annual_allocation_proportion = None
+	_local_available = numpy.zeros((365,))  # will be overridden when __init__ runs get_local_flows
+	eflows_proportion = numpy.zeros((365,))
+
+	def __init__(self, stream_segment, comid, network):
+		self.comid = comid
+		self.downstream = None
+		self.upstream = []
+		self._upstream_available = None
+		self.stream_segment = stream_segment
+		self.full_network = network
+
+		self.get_local_flows()
+
+	def get_local_flows(self):
+		local_flows_objects = models.DailyFlow.objects.filter(model_run=self.full_network.model_run,
+		                                                      water_year=self.full_network.water_year,
+		                                                      stream_segment=self.stream_segment) \
+														.order_by("water_year_day")
+		self._local_available = numpy.array([float(day_flow.estimated_local_flow) for day_flow in local_flows_objects])
+
+	@property
+	def eflows_benefit(self):
+		return self.stream_segment.get_benefit_for_timeseries(self.eflows_water, daily=False, collapse_function=numpy.max)
+
+	@property
+	def eflows_water(self):
+		return self.eflows_proportion * self.local_available
+
+	@property
+	def economic_water(self):
+		return (1 - self.eflows_proportion) * self.local_available
+
+	@property
+	def downstream_available(self):
+		return self.eflows_water
+
+	@property
+	def local_available(self):
+		return self._local_available + self.upstream_available
+
+	@property
+	def upstream_available(self):
+		if self._upstream_available is not None:  # short circuit, but if we don't have it then we need to get it.
+			return self._upstream_available
+
+		upstream_available = 0
+		for upstream in self.upstream:
+			upstream_available += upstream.downstream_available  # get the amount of water in the upstream item that flows downstream
+
+		self._upstream_available = upstream_available
+		return self._upstream_available
+
+	def reset(self):
+		"""
+			resets the class for another evaluation round
+		:return:
+		"""
+		self._upstream_available = None
+
+	def set_allocation(self, allocation):
+		self.eflows_proportion = allocation  # should be a numpy array with 365 elements
+
+
+class StreamNetwork(object):
+
+	stream_segments = collections.OrderedDict()
+
+	def __init__(self, django_segments, water_year, model_run, economic_benefit_instance=None):
+		self.water_year = water_year
+		self.model_run = model_run  # Django model run object
+
+		self.economic_benefit_calculator = economic_benefit_instance
+		self.build(django_segments)
+
+	def build(self, django_segments):
+		log.info("Initiating network and pulling daily flow data")
+		for segment in django_segments.all():
+			self.stream_segments[segment.com_id] = ModelStreamSegment(segment, segment.com_id, network=self)
+
+		log.info("Making network connectivity")
+		for segment in self.stream_segments.values():
+			try:
+				segment.downstream = self.stream_segments[segment.stream_segment.downstream.com_id]  # get the comid of the downstream object off the django object, then use it to index these objects
+			except KeyError:
+				log.warning("No downstream segment for comid {}. If this is mid-network, it's likely a problem, but it most"
+				            "likely means this is the outlet".format(segment.stream_segment.com_id))
+
+			for upstream in segment.stream_segment.directly_upstream.all():
+				try:
+					segment.upstream.append(self.stream_segments[upstream.com_id])  # then get the comid for the upstream item and use it to look up the item in this network
+				except KeyError:
+					log.warning("Missing upstream segment with comid {}. Likely means no flow data for segment, so it's left out."
+					            "This could be a problem mid-network, but this most likely is a small headwaters tributary. You should"
+					            "go look on a map.".format(upstream.com_id))
+
+			segment.stream_segment.ready_run()  # attaches the benefit objects so that we can evaluate benefit
+
+	def set_segment_allocations(self, allocations):
+		allocation_index = 0
+		for segment in self.stream_segments.values():
+			segment.set_allocation(allocations[allocation_index])
+			allocation_index += 1
+
+	def get_benefits(self):
+		environmental_benefits = [segment.eflows_benefit for segment in self.stream_segments.values()]
+		eflow_benefit = numpy.sum(environmental_benefits)
+		economic_water_total = numpy.sum([segment.economic_water for segment in self.stream_segments.values()])
+		self.economic_benefit_calculator.units_of_water = economic_water_total
+		economic_benefit = self.economic_benefit_calculator.get_benefit()
+
+		# we could return the individual benefits here, but we'll save that for another time
+		return {
+			"environmental_benefit": eflow_benefit,
+			"economic_benefit": economic_benefit,
+		}
+
+	def reset(self):
+		for segment in self.stream_segments:
+			segment.reset()
+
+
+class StreamNetworkProblem(Problem):
+	"""
+		We need to subclass this because:
+			1) We want to save the HUCs so we don't load them every time - originally
+				did this as a closure, but we *also* would like a class for
+			2) Updating constraints for every solution. It's undocumented, but
+				Platypus allows for *functions* as constraints, so we'll actually
+				need a function that traverses the hydrologic network and returns 0 if
+				the solution is feasible and 1 if it's not.
+
+				Thinking that the constraint function will just traverse the network and make sure
+				that flow value in each HUC is less than or equal to the sum of that HUC's initial flow
+				plus everything coming from upstream.
+	"""
+	def __init__(self, stream_network, starting_water_price=800, total_units_needed_factor=0.25, objectives=2, *args):
+		"""
+
+		:param decision_variables: when this is set to None, it will use the number of HUCs as the number of decision
+			variables
+		:param objectives:  default is two (total needs met, and min by species)
+		:param args:
+		"""
+
+		self.stream_network = stream_network
+		self.stream_network.economic_benefit_calculator = economic_components.EconomicBenefit(starting_water_price,
+		                                                                                      total_units_needed=self.get_needed_water(total_units_needed_factor))
+		self.decision_variables = len(stream_network.stream_segments) * 365  # we need a decision variable for every stream segment and day - we'll reshape them later
+
+		self.iterations = []
+		self.objective_1 = []
+		self.objective_2 = []
+
+		log.info("Number of Decision Variables: {}".format(self.decision_variables))
+		super(StreamNetworkProblem, self).__init__(self.decision_variables, objectives, *args)  # pass any arguments through
+
+		self.directions[:] = Problem.MAXIMIZE  # we want to maximize all of our objectives
+		self.types[:] = Real(0, 1)  # we now construe this as a proportion instead of a raw value
+
+		self.eflows_nfe = 0
+
+	def get_needed_water(self, proportion):
+		"""
+			Given a proportion of a basin's total water to extract, calculates the quantity
+		:return:
+		"""
+
+		log.info("Calculating total water to extract")
+		total_water = 0
+		all_flows = self.stream_network.model_run.daily_flows.filter(water_year=self.stream_network.water_year)
+		for flow in all_flows:
+			total_water += flow.estimated_local_flow
+
+		return float(total_water) * proportion
+
+	def evaluate(self, solution):
+		"""
+			We want to evaluate a full hydrograph of values for an entire year
+		"""
+		if self.eflows_nfe % 5 == 0:
+			log.info("NFE (inside): {}".format(self.eflows_nfe))
+		self.eflows_nfe += 1
+
+		# attach allocations to segments here - doesn't matter what order we do it in, so long as it's consistent
+		self.stream_network.set_segment_allocations(allocations=solution.variables)
+
+		benefits = self.stream_network.get_benefits()
+
+		# set the outputs - platypus looks for these here.
+		solution.objectives[0] = benefits["environmental_benefit"]
+		solution.objectives[1] = benefits["economic_benefit"]
+
+		# tracking values
+		self.iterations.append(self.eflows_nfe)
+		self.objective_1.append(benefits["environmental_benefit"])
+		self.objective_2.append(benefits["economic_benefit"])
 
 
 class HUCNetworkProblem(Problem):

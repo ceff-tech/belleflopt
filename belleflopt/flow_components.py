@@ -237,12 +237,12 @@ def summer_base_flow_builder(segment_component,
 
 
 def fall_initiation_builder(segment_component,
-							magnitude_metric=local_settings.WINTER_PEAK_MAGNITUDE_METRIC,
+							magnitude_metric=local_settings.FALL_INITIATION_MAGNITUDE_METRIC,
 							magnitude_values=local_settings.FALL_INITIATION_MAGNITUDE_VALUES,
-							start_timing_metric=local_settings.WINTER_PEAK_START_TIMING_METRIC,
-							duration_metric=local_settings.WINTER_PEAK_START_TIMING_METRIC,
-							start_timing_vals=local_settings.WINTER_PEAK_START_TIMING_VALUES,
-							duration_vals=local_settings.WINTER_PEAK_DURATION_VALUES):
+							start_timing_metric=local_settings.FALL_INITIATION_START_TIMING_METRIC,
+							duration_metric=local_settings.FALL_INITIATION_START_TIMING_METRIC,
+							start_timing_vals=local_settings.FALL_INITIATION_START_TIMING_VALUES,
+							duration_vals=local_settings.FALL_INITIATION_DURATION_VALUES):
 	"""
 		NOTE: We INTENTIONALLY set START_TIMING into the duration_metric. It's not an accident or a bug/typo above.
 

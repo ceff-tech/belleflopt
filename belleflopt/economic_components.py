@@ -66,5 +66,5 @@ class EconomicBenefit(object):
 		:return:
 		"""
 
-		all_costs = self.vectorized_cost(range(1, units+1))
+		all_costs = self.vectorized_cost(range(1, int(units)+1))
 		return sum(all_costs)

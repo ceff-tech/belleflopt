@@ -3,6 +3,7 @@ from operator import attrgetter
 import logging
 import csv
 import sqlite3
+import re
 
 import django
 import fiona
@@ -47,6 +48,9 @@ def load_fresh(import_nhd=True, clear_flow_data=True):
 	# build segment_component values
 	log.info("Building Components")
 	build_segment_components()
+
+	load_flows(clear_existing=clear_flow_data)
+	log.info("Complete. Don't forget to load species data for your model")
 
 
 def load_flow_components():
@@ -181,7 +185,7 @@ def _get_upstream(stream_segment, force=False):
 	# now we can fill in the current huc with the upstream hucs filled
 	# ON DEBUG - confirm that these instances will pick up upstream changes in recursive function
 
-		stream_segment.upstream.add(segment)  # add the upstream huc
+		stream_segment.upstream.add(segment)  # add the upstream segment
 
 	stream_segment.save()
 
@@ -511,7 +515,9 @@ def load_flows(database=os.path.join(settings.BASE_DIR, "data", "navarro_flows",
 				day_field="est_day",
 				flow_field="estimated_value",
 				water_years=(2010, 2011),
-				clear_existing=True):
+                model_run_name="navarro_thesis",
+				clear_existing=True,
+                allocate_downstream=True):
 
 	if clear_existing:
 		log.info("Deleting existing flow data")
@@ -530,6 +536,8 @@ def load_flows(database=os.path.join(settings.BASE_DIR, "data", "navarro_flows",
 
 	flow_objects = []
 
+	model_run = models.ModelRun.objects.get(name=model_run_name)
+
 	for year in water_years:
 		log.info("Loading Water Year {} flows".format(year))
 		flows = cursor.execute(query, (year - 1, year))
@@ -538,6 +546,7 @@ def load_flows(database=os.path.join(settings.BASE_DIR, "data", "navarro_flows",
 		for flow in flows:
 			flow_objects.append(models.DailyFlow(
 				stream_segment=models.StreamSegment.objects.get(com_id=flow[0]),
+				model_run=model_run,
 				flow_date=arrow.Arrow(flow[1], flow[2], flow[3]).date(),
 				water_year=support.water_year(year=flow[1], month=flow[2]),
 				water_year_day=support.day_of_water_year(year=flow[1], month=flow[2], day=flow[3]),
@@ -549,3 +558,59 @@ def load_flows(database=os.path.join(settings.BASE_DIR, "data", "navarro_flows",
 
 	cursor.close()
 	db_connection.close()
+
+	if allocate_downstream:
+		model_run.preprocess_flows()
+
+	model_run.update_segments()
+
+
+def load_species(database=r"C:\Users\dsx\Dropbox\Code\ProbabilisticPISCES\results\results_2019_10_22_base90_decay50.gpkg",
+                 table=r"pisces_probabilities_2019_10_22_base90_decay50",
+                 comid_field="COMID",
+                 model_run=None):
+
+	"""
+		Loads species data for all comids in model_run
+	:param database:
+	:param table:
+	:param comid_field:
+	:param model_run: Only loads data for these segments
+	:return:
+	"""
+
+	model_run_comids = [seg.com_id for seg in model_run.segments.all()]
+
+	with sqlite3.Connection(database) as connection:
+		connection.row_factory = sqlite3.Row  # we need to do this so we can index by name
+		cursor = connection.cursor()
+		results = cursor.execute("select * from {}".format(table))
+
+		keys = None
+		for row in results:
+			if str(row[comid_field]) not in model_run_comids:
+				continue  # skip any segments not in this model run
+
+			if keys is None:
+				keys = [field for field in row.keys() if re.match("[A-Z]{3}[0-9]{2}", field) is not None]
+
+			segment = models.StreamSegment.objects.get(com_id=row[comid_field])
+			for key in keys:
+				if row[key] == 0:  # we won't load absent species
+					continue
+
+				try:
+					species = models.Species.objects.get(pisces_fid=key)
+				except models.Species.DoesNotExist:
+					species = models.Species(pisces_fid=key, common_name="")  # temporary fix - don't want to load species right now
+					species.save()
+
+				models.SegmentPresence(stream_segment=segment,
+				                       species=species,
+				                       probability=row[key]).save()
+
+	log.info("Caching summed segment species presence probabilities")
+	# update the cached species presence values
+	for segment in model_run.segments.all():
+		segment.calculate_species_presence()
+		segment.save()

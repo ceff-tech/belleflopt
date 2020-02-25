@@ -43,141 +43,61 @@ def water_year(year, month):
 		return year
 
 
-def reset():
-	load_hucs()
-	load_species()
-	load_climate()
-	load_flows()
-
-
-def _get_upstream(huc_object, force=False):
-	if huc_object.upstream.count() > 0 and not force:
-		return  # if this function is called when it already has upstream hucs defined, it's already complete - return immediately
-
-	upstream = models.HUC.objects.filter(downstream_id=huc_object.id)  # get all the upstream of the current HUC
-	for huc in upstream:  # for each upstream huc, find *its* upstream hucs and add them here too
-		_get_upstream(huc)  # this needs to run for all the upstream hucs first
-		huc.refresh_from_db()  # make sure it correctly gets the new info we just loaded for it
-
-		if huc.upstream.count() > 0:
-			for upstream_huc in huc.upstream.all():
-				if upstream_huc.huc_id == huc.huc_id or upstream_huc.huc_id == huc_object.huc_id or (huc_object.downstream is not None and upstream_huc.huc_id == huc_object.downstream.huc_id):
-					continue
-
-				huc_object.upstream.add(upstream_huc)
-	# now we can fill in the current huc with the upstream hucs filled
-	# ON DEBUG - confirm that these instances will pick up upstream changes in recursive function
-
-		huc_object.upstream.add(huc)  # add the upstream huc
-
-	huc_object.save()
-
-
-def load_hucs(filepath=os.path.join(settings.BASE_DIR, "data", "eel_hucs.csv")):
-	with open(filepath, 'r') as huc_data:
-		csv_data = csv.DictReader(huc_data)
-
-		log.info("Loading HUCs")
-		for row in csv_data:
-			try:
-				models.HUC.objects.get(huc_id=row["HUC_12"])
-				continue  # if it exists, don't load it again
-			except models.HUC.DoesNotExist:
-				pass
-
-			huc = models.HUC()
-			huc.huc_id = row["HUC_12"]
-			huc.save()  # we need to save before we can set the downstreams
-
-	log.info("Loading Downstream information")
-	with open(filepath, 'r') as huc_data:  # do it again to reset the cursor
-		csv_data = csv.DictReader(huc_data)
-		for row in csv_data:
-			#log.debug("[{}]".format(row["HUC_12"]))
-			huc = models.HUC.objects.get(huc_id=row["HUC_12"])
-			if row["HU_12_DS"] not in NO_DOWNSTREAM:
-				try:
-					huc.downstream = models.HUC.objects.get(huc_id=row["HU_12_DS"])
-				except models.HUC.DoesNotExist:
-					log.error("Couldn't find downstream object {}".format(row["HU_12_DS"]))
-					raise
-			huc.save()
-
-	_build_network()
-
-
-def _build_network(force=False, starting_huc="180101051102"):
+def run_optimize_new(algorithm=NSGAII, NFE=1000, popsize=25, seed=20200224, model_run_name="navarro_thesis", show_plots=True):
 	"""
-		Force runs *much* slower, but forces a full rebuild of the network
-	:param force:
-	:return:
+		Runs a single optimization run, defaulting to 1000 NFE using NSGAII. Won't output plots to screen
+		by default. Outputs tables and figures to the data/results folder.
+	:param algorithm: a platypus Algorithm object (not the instance, but the actual item imported from platypus)
+						defaults to NSGAII.
+	:param NFE: How many times should the objective function be run?
+	:param popsize: The size of hte population to use
+	:param seed: Random seed to start
+	:param show_plots: Whether plots should be output to the screen
+	:return: None
 	"""
-	log.info("Building HUC network")
-	#for huc in models.HUC.objects.all():
-	huc = models.HUC.objects.get(huc_id=starting_huc)
-	_get_upstream(huc, force=force)  # run it for everything to make sure it's complete
+
+	#experiment = comet.new_experiment()
+	#experiment.log_parameters({"algorithm": algorithm, "NFE": NFE, "popsize": popsize, "seed": seed})
+
+	random.seed = seed
+
+	model_run = models.ModelRun.objects.get(name=model_run_name)
+
+	stream_network = optimize.StreamNetwork(model_run.segments, 2010, model_run)
+	problem = optimize.StreamNetworkProblem(stream_network)
+
+	eflows_opt = algorithm(problem, population_size=popsize)
+
+	eflows_opt.run(NFE)
+
+	_plot(eflows_opt, "Pareto Front: {} NFE, PopSize: {}".format(NFE, popsize),
+		  				#experiment=experiment,
+						show=show_plots,
+						#filename=os.path.join(settings.BASE_DIR, "data", "results", "pareto_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__, str(seed), str(NFE), str(popsize)))
+	        )
+
+	_plot_convergence(problem.iterations, problem.objective_1,
+					  "Environmental Benefit v NFE. Alg: {}, PS: {}, Seed: {}".format(algorithm.__name__, str(popsize), str(seed)),
+					  	#experiment=experiment,
+						show=show_plots,
+						#filename=os.path.join(settings.BASE_DIR, "data", "results", "convergence_obj1_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__,str(seed),str(NFE),str(popsize)))
+	                  )
+
+	_plot_convergence(problem.iterations, problem.objective_2, "Economic Benefit v NFE Alg: {}, PS: {}, Seed: {}".format(algorithm.__name__, str(popsize), str(seed)),
+					  #experiment=experiment,
+					  show=show_plots,
+					  #filename=os.path.join(settings.BASE_DIR, "data", "results", "convergence_obj2_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__, str(seed),
+						#															   str(NFE), str(popsize)))
+	)
 
 
-def load_species(filepath=os.path.join(settings.BASE_DIR, "data", "species_data.csv")):
+	#file_path = os.path.join(settings.BASE_DIR, "data", "results", "results_{}_seed{}_nfe{}_popsize{}.csv".format(algorithm.__name__,str(seed),str(NFE),str(popsize)))
+	#output_table(problem.hucs, output_path=file_path)
 
-	log.debug("Loading Species")
+	#experiment.log_asset(file_path, "results.csv")
+	#experiment.end()
 
-	with open(filepath, 'r') as species_data:
-		species = csv.DictReader(species_data)
-		for record in species:
-			try:
-				# get the fish
-				fish = models.Species.objects.get(pisces_fid=record["FID"])
-			except models.Species.DoesNotExist:
-				# if it doesn't exist, create it
-				fish = models.Species()
-				fish.common_name = record["Common_Name"]
-				fish.pisces_fid = record["FID"]
-				fish.save()
-
-			huc = models.HUC.objects.get(huc_id=record["HUC_12"])
-			huc.assemblage.add(fish)
-			huc.save()
-
-
-def load_climate(filepath=os.path.join(settings.BASE_DIR, "data", "bcm_march86_eel.csv")):
-	"""
-		sets available water based on BCM data
-	:return:
-	"""
-	log.debug("Loading Climate")
-
-	with open(filepath, 'r') as climate_data:
-		records = csv.DictReader(climate_data)
-
-		for record in records:
-			huc = models.HUC.objects.get(huc_id=record["HUC_12"])
-			huc.initial_available_water = record["cfs_mainstem"]  # load the flow at the HUC outlet
-			huc.save()
-
-
-def load_flows(filepath=os.path.join(settings.BASE_DIR, "data", "flow_needs.csv")):
-
-	log.debug("Loading Flows")
-
-	# add the components themselves
-	min_flow = models.FlowComponent(name="min_flow")
-	max_flow = models.FlowComponent(name="max_flow")
-	min_flow.save()
-	max_flow.save()
-
-	with open(filepath, 'r') as component_data:
-		records = csv.DictReader(component_data)
-		for record in records:
-			species = models.Species.objects.get(common_name=record["species"])
-			min_component = models.SpeciesComponent(component=min_flow, species=species, value=record["min_flow"])
-			max_component = models.SpeciesComponent(component=max_flow, species=species, value=record["max_flow"])
-			min_flow.save()
-			max_flow.save()
-			species.save()
-			min_component.save()
-			max_component.save()
-
+	#return file_path
 
 def run_optimize(algorithm=NSGAII, NFE=1000, popsize=25, seed=20181214, show_plots=False):
 	"""
@@ -247,11 +167,13 @@ def run_optimize(algorithm=NSGAII, NFE=1000, popsize=25, seed=20181214, show_plo
 	return file_path
 
 
-def _plot(optimizer, title, experiment, filename=None, show=False):
+def _plot(optimizer, title, experiment=None, filename=None, show=False):
 	x = [s.objectives[0] for s in optimizer.result if s.feasible]
 	y = [s.objectives[1] for s in optimizer.result if s.feasible]
-	comet.log_metric("NeedsMet", x, experiment=experiment)  # log the resulting values
-	comet.log_metric("SecondAxis", y, experiment=experiment)
+
+	if experiment is not None:
+		comet.log_metric("NeedsMet", x, experiment=experiment)  # log the resulting values
+		comet.log_metric("SecondAxis", y, experiment=experiment)
 
 	log.debug("X: {}".format(x))
 	log.debug("Y: {}".format(y))
@@ -262,7 +184,8 @@ def _plot(optimizer, title, experiment, filename=None, show=False):
 	plt.ylabel("Minimum percent of HUC needs satisfied")
 	plt.title(title)
 
-	experiment.log_figure(title)
+	if experiment is not None:
+		experiment.log_figure(title)
 
 	if filename:
 		plt.savefig(fname=filename)

@@ -1,5 +1,7 @@
+import logging
+
 import django
-from django.db import models
+from django.db import models, connection
 
 import numpy
 import seaborn
@@ -8,6 +10,9 @@ from matplotlib import pyplot as plt
 from belleflopt import flow_components
 
 from eflows_optimization import settings
+
+
+log = logging.getLogger("belleflopt.models")
 
 
 class StreamSegment(models.Model):
@@ -29,6 +34,12 @@ class StreamSegment(models.Model):
 		(COASTLINE, COASTLINE)
 	]
 
+	class Meta:
+		indexes = [
+			models.Index(fields=['com_id', 'name']),
+			models.Index(fields=['com_id'], name='com_id_idx'),
+		]
+
 	com_id = models.CharField(null=False, max_length=25, unique=True)
 	name = models.CharField(null=True, max_length=255, blank=True)  # include the name just for our own usefulness
 	ftype = models.CharField(null=True, blank=True, max_length=32, choices=FTYPE_CHOICES)
@@ -41,10 +52,14 @@ class StreamSegment(models.Model):
 	upstream_node_id = models.CharField(max_length=30)
 	downstream_node_id = models.CharField(max_length=30)
 
-	downstream = models.ForeignKey("self", null=True, on_delete=models.DO_NOTHING, related_name="upstream_single_huc")  # needs to be nullable for creation
+	downstream = models.ForeignKey("self", null=True, on_delete=models.DO_NOTHING, related_name="directly_upstream")  # needs to be nullable for creation
+
+	# this it the entire upstream network, for single upstream, use the reverse downstream relation
 	upstream = models.ManyToManyField("self", symmetrical=False, related_name="all_downstream_segments")  # we can build our upstream network once here!
 
 	subwatershed = models.ForeignKey("HUC", null=True, on_delete=models.DO_NOTHING)  # keep it so we can potentially do aggregation in the future
+
+	species_presence = models.DecimalField(max_digits=10, decimal_places=5, null=True)
 
 	def __repr__(self):
 		return "Segment {}: {}".format(self.com_id, self.name)
@@ -66,10 +81,23 @@ class StreamSegment(models.Model):
 		if show_plot:
 			plt.show()
 
+	def ready_run(self):
+		self._runtime_components = self.segmentcomponent_set.all()
+		log.debug("Making benefit for segment {}".format(str(self)))
+		for component in self._runtime_components:
+			try:
+				component.build()
+				component.make_benefit()
+			except:
+				log.debug("Component build failed for {} on segment {}".format(component.component.name, str(self)))
+
 	def get_benefit_for_timeseries(self, timeseries, daily=False, collapse_function=numpy.max):
 		"""
 			Returns the total benefit on this stream segment for a time series. When daily is True, returns the benefit
-			by day
+			by day. Multiplies the calculated benefit by the species present in the segment
+
+			Must have run _ready_run on this segment at least once before using this.
+
 		:param timeseries: A timeseries by day of WATER YEAR - index 0 is Oct 1, index 1 is Oct 2, index 364 is Sept 30, etc
 		:param daily: When True, returns a timeseries of benefit. When False, sums the daily benefit for a water year total
 		:param collapse_function: A numpy function like max, sum, min, etc that will let it collapse values for components
@@ -79,31 +107,33 @@ class StreamSegment(models.Model):
 
 		benefits = numpy.zeros((5, 365))
 		index = 0
-		for component in self.segmentcomponent_set.all():
-			benefits[index] = component.benefit.get_benefit_for_timeseries(timeseries)
-			index += 1
+		for component in self._runtime_components:
+			try:
+				benefits[index] = component.benefit.get_benefit_for_timeseries(timeseries)
+				index += 1
+			except:
+				log.debug("failed to calculate benefit for {} on segment {}".format(component.component.name, str(self)))
 
 		daily_values = collapse_function(benefits, axis=0)
 		if daily:
-			return daily_values
+			return daily_values * float(self.species_presence)
 		else:
-			return numpy.sum(daily_values)
+			return numpy.sum(daily_values) * float(self.species_presence)
 
-	#def __init__(self):
-	#	"""
-	#		We want to define our own because we'll attach non-Django benefit classes that we don't want to persist
-	#		or be Django classes for performance reasons
-	#	"""
-
-	#	# We'll need some kind of item here that manages the benefit calculations of the subcomponents through time.
-	#	# Might need one for environmental benefit and one for economic benefit
-	#	# self.environmental_flows = None  # this will become a numpy series later of the daily allocated flows
-	#	# self.economic_flows = None  # this will become a numpy series later of the daily allocated flows
-
-	#	super().__init__()
+	def calculate_species_presence(self):
+		"""
+			Calculates the species presence for the segment, but caches it - must be updated once species data is reloaded
+		:return:
+		"""
+		self.species_presence = self.segment_presences.aggregate(models.Sum('probability'))['probability__sum']
 
 
 class Species(models.Model):
+	class Meta:
+		indexes = [
+			models.Index(fields=['pisces_fid']),
+		]
+
 	common_name = models.CharField(null=False, max_length=255)
 	pisces_fid = models.CharField(null=False, max_length=6)
 	segments = models.ManyToManyField(StreamSegment, related_name="species", through="SegmentPresence")
@@ -270,7 +300,7 @@ class SegmentPresence(models.Model):
 	"""
 		The through model for species presence, since we're storing the probability of occurrence on the segment
 	"""
-	stream_segment = models.ForeignKey(StreamSegment, on_delete=models.DO_NOTHING)
+	stream_segment = models.ForeignKey(StreamSegment, on_delete=models.DO_NOTHING, related_name="segment_presences")
 	species = models.ForeignKey(Species, on_delete=models.DO_NOTHING)
 
 	probability = models.DecimalField(max_digits=4, decimal_places=3)
@@ -306,28 +336,79 @@ class HUC(models.Model):
 	def huc_8(self):
 		return self.huc_id[:8]
 
+
 class ModelRun(models.Model):
 	name = models.CharField(max_length=255, null=True, blank=True)
 	date_run = models.DateTimeField(default=django.utils.timezone.now)
+	segments = models.ManyToManyField(StreamSegment)  # this lets us tag stream segments as part of a model run
+
+	def preprocess_flows(self):
+		"""
+			Loops through every day and segment and figures out how much of each segment's flow is coming from upstream
+			versus from the current segment. Non-recursive because then we'd double up calculations. Just a preprocessing step
+		:return:
+		"""
+
+		with connection.cursor() as cursor:
+			# water_years = self.daily_flows.distinct("water_year")  # doesn't work with sqlite, which seems silly
+			water_years = list(cursor.execute("select distinct water_year from belleflopt_dailyflow where model_run_id = %s", [self.id]))
+			water_years = [year[0] for year in water_years]
+
+		# we zero out the estimate upstream flow because otherwise repeated runs would produce odd behavior
+		self.daily_flows.update(estimated_upstream_flow=0)
+
+		for water_year in water_years:
+			log.info("Water Year {}".format(water_year))
+			for day in range(1, 366):
+				for segment_flow in self.daily_flows.filter(water_year=water_year, water_year_day=day):
+					if segment_flow.stream_segment.downstream is not None:
+						try:
+							downstream_flow_day = DailyFlow.objects.get(model_run=self,
+						                                            stream_segment=segment_flow.stream_segment.downstream,
+						                                            water_year=water_year,
+						                                            water_year_day=day)
+						except DailyFlow.DoesNotExist:
+							log.warning("No flow for upstream_segment: {}, Segment: {}, water_year: {}, water_year_day: {}".format(
+																	segment_flow.stream_segment.com_id,
+																	segment_flow.stream_segment.downstream.com_id,
+						                                            water_year,
+						                                            day))
+							continue
+
+						downstream_flow_day.estimated_upstream_flow += segment_flow.estimated_total_flow
+						downstream_flow_day.save()
+
+	def update_segments(self):
+		with connection.cursor() as cursor:
+			# water_years = self.daily_flows.distinct("stream_segment")  # doesn't work with sqlite, which seems silly
+			segment_ids = list(cursor.execute("select distinct stream_segment_id from belleflopt_dailyflow where model_run_id = %s", [self.id]))
+			for segment in segment_ids:
+				self.segments.add(StreamSegment.objects.get(id=segment[0]))
 
 
 class DailyFlow(models.Model):
-	model_run = models.ForeignKey(ModelRun, on_delete=models.DO_NOTHING)
+	class Meta:
+		indexes = [
+			models.Index(fields=['water_year', "water_year_day"], name="idx_water_yr_and_day"),
+			models.Index(fields=['water_year'], name='idx_water_year'),
+			models.Index(fields=['water_year_day'], name='idx_water_year_day'),
+		]
+
+	model_run = models.ForeignKey(ModelRun, on_delete=models.DO_NOTHING, related_name="daily_flows")
 	stream_segment = models.ForeignKey(StreamSegment, on_delete=models.CASCADE, related_name="daily_flows")
 	flow_date = models.DateField()
 	water_year = models.SmallIntegerField()
 	water_year_day = models.SmallIntegerField()
 	estimated_total_flow = models.DecimalField(max_digits=10, decimal_places=3)
+	estimated_upstream_flow = models.DecimalField(max_digits=10, decimal_places=3, default=0)
 
-	def raw_upstream_flow(self):
+	@property
+	def estimated_local_flow(self):
 		"""
-			Gets the available flow from upstream sources without diversions so that we can determine how much flow
-			originates in this segment
+			This is kind of important - ASSUMES THAT NEGATIVE VALUES AREN'T LOSSES TO GROUNDWATER AND JUST ZEROES FLOWS!!!
 		:return:
 		"""
-
-		upstream_flows = self.stream_segment.upstream.daily_flows.filter(model_run=self.model_run)  # get all the daily flows that are upstream and for the same model
-		total_upstream_flow = sum([flow.estimated_total_flow for flow in upstream_flows])
+		return max(self.estimated_total_flow - self.estimated_upstream_flow, 0)
 
 
 class FlowBenefitResult(models.Model):
