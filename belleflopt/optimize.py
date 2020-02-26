@@ -15,6 +15,20 @@ log = logging.getLogger("eflows.optimization")
 random.seed = 20200224
 
 
+class SimpleInitialFlowsGenerator(Generator):
+	"""
+		Generates initial flows based on a constant proportion passed into the constructor
+	"""
+	def __init__(self, proportion):
+		self.proportion = proportion
+		super(SimpleInitialFlowsGenerator, self).__init__()
+
+	def generate(self, problem):
+		solution = Solution(problem)
+		solution.variables = [self.proportion, ] * problem.decision_variables  # start with almost everything for the environment
+		return solution
+
+
 class InitialFlowsGenerator(Generator):
 	"""
 		Generates initial flows based on the actual allocated flows
@@ -251,6 +265,12 @@ class StreamNetworkProblem(Problem):
 
 		self.eflows_nfe = 0
 
+	def reset(self):
+		self.iterations = []
+		self.objective_1 = []
+		self.objective_2 = []
+		self.eflows_nfe = 0
+
 	def get_needed_water(self, proportion):
 		"""
 			Given a proportion of a basin's total water to extract, calculates the quantity
@@ -270,6 +290,7 @@ class StreamNetworkProblem(Problem):
 		"""
 			We want to evaluate a full hydrograph of values for an entire year
 		"""
+
 		if self.eflows_nfe % 5 == 0:
 			log.info("NFE (inside): {}".format(self.eflows_nfe))
 		self.eflows_nfe += 1

@@ -65,6 +65,8 @@ class EconomicBenefit(object):
 		:param units: How many units of water do you want?
 		:return:
 		"""
+		if int(units) == 0:
+			return 0
 
 		all_costs = self.vectorized_cost(range(1, int(units)+1))
 		return sum(all_costs)

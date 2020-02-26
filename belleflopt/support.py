@@ -2,10 +2,13 @@ import csv
 import os
 import logging
 import random
+import shelve
 
+import numpy
 import arrow
 from matplotlib import pyplot as plt
-from platypus import NSGAII, SMPSO, GDE3, SPEA2
+from platypus import NSGAII, OMOPSO, EpsNSGAII, SMPSO, GDE3, SPEA2
+import platypus
 
 from eflows_optimization import settings
 from belleflopt import models
@@ -43,7 +46,7 @@ def water_year(year, month):
 		return year
 
 
-def run_optimize_new(algorithm=NSGAII, NFE=1000, popsize=25, starting_water_price=800, economic_water_proportion = 0.99, seed=20200224, model_run_name="navarro_thesis", show_plots=True):
+def run_optimize_new(algorithm=NSGAII, NFE=1000, popsize=25, starting_water_price=800, economic_water_proportion = 0.99, seed=20200224, model_run_name="navarro_thesis", use_comet=True, show_plots=True, run_problem=True):
 	"""
 		Runs a single optimization run, defaulting to 1000 NFE using NSGAII. Won't output plots to screen
 		by default. Outputs tables and figures to the data/results folder.
@@ -53,17 +56,22 @@ def run_optimize_new(algorithm=NSGAII, NFE=1000, popsize=25, starting_water_pric
 	:param popsize: The size of hte population to use
 	:param seed: Random seed to start
 	:param show_plots: Whether plots should be output to the screen
+	:pararm run_problem: When True, runs it, when False, just sets it up and returns it. Lets us have a consistent problem
+						set up in many contexts
 	:return: None
 	"""
 
-	experiment = comet.new_experiment()
-	experiment.log_parameters({"algorithm": algorithm,
+	if use_comet and run_problem:
+		experiment = comet.new_experiment()
+		experiment.log_parameters({"algorithm": algorithm,
 	                           "NFE": NFE,
 	                           "popsize": popsize,
 	                           "seed": seed,
 	                           "starting_water_price":starting_water_price,
 	                           "economic_water_proportion": economic_water_proportion
 	                           })
+	else:
+		experiment = None
 
 	random.seed = seed
 
@@ -76,36 +84,105 @@ def run_optimize_new(algorithm=NSGAII, NFE=1000, popsize=25, starting_water_pric
 
 	eflows_opt = algorithm(problem, generator=optimize.InitialFlowsGenerator(), population_size=popsize)
 
-	eflows_opt.run(NFE)
+	if run_problem:
+		eflows_opt.run(NFE)
 
-	_plot(eflows_opt, "Pareto Front: {} NFE, PopSize: {}".format(NFE, popsize),
-		  				experiment=experiment,
-						show=show_plots,
-						filename=os.path.join(settings.BASE_DIR, "data", "results", "pareto_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__, str(seed), str(NFE), str(popsize)))
-	        )
+		make_plots(eflows_opt, problem, NFE, algorithm, seed, popsize, experiment, show_plots)
 
-	_plot_convergence(problem.iterations, problem.objective_1,
-					  "Environmental Benefit v NFE. Alg: {}, PS: {}, Seed: {}".format(algorithm.__name__, str(popsize), str(seed)),
-					  	experiment=experiment,
-						show=show_plots,
-						filename=os.path.join(settings.BASE_DIR, "data", "results", "convergence_obj1_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__,str(seed),str(NFE),str(popsize)))
-	                  )
+		if use_comet:
+			#file_path = os.path.join(settings.BASE_DIR, "data", "results", "results_{}_seed{}_nfe{}_popsize{}.csv".format(algorithm.__name__,str(seed),str(NFE),str(popsize)))
+			#output_table(problem.hucs, output_path=file_path)
 
-	_plot_convergence(problem.iterations, problem.objective_2, "Economic Benefit v NFE Alg: {}, PS: {}, Seed: {}".format(algorithm.__name__, str(popsize), str(seed)),
-					  experiment=experiment,
-					  show=show_plots,
-					  filename=os.path.join(settings.BASE_DIR, "data", "results", "convergence_obj2_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__, str(seed),
-																				   str(NFE), str(popsize)))
-	)
-
-
-	#file_path = os.path.join(settings.BASE_DIR, "data", "results", "results_{}_seed{}_nfe{}_popsize{}.csv".format(algorithm.__name__,str(seed),str(NFE),str(popsize)))
-	#output_table(problem.hucs, output_path=file_path)
-
-	#experiment.log_asset(file_path, "results.csv")
-	experiment.end()
+			#experiment.log_asset(file_path, "results.csv")
+			experiment.end()
 
 	#return file_path
+	return problem
+
+
+def make_plots(model_run, problem, NFE, algorithm, seed, popsize, experiment=None, show_plots=False,):
+	_plot(model_run, "Pareto Front: {} NFE, PopSize: {}".format(NFE, popsize),
+	      experiment=experiment,
+	      show=show_plots,
+	      filename=os.path.join(settings.BASE_DIR, "data", "results",
+	                            "pareto_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__, str(seed), str(NFE),
+	                                                                          str(popsize)))
+	      )
+
+	_plot_convergence(problem.iterations, problem.objective_1,
+	                  "Environmental Benefit v NFE. Alg: {}, PS: {}, Seed: {}".format(algorithm.__name__, str(popsize),
+	                                                                                  str(seed)),
+	                  experiment=experiment,
+	                  show=show_plots,
+	                  filename=os.path.join(settings.BASE_DIR, "data", "results",
+	                                        "convergence_obj1_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__,
+	                                                                                                str(seed), str(NFE),
+	                                                                                                str(popsize)))
+	                  )
+
+	_plot_convergence(problem.iterations, problem.objective_2,
+	                  "Economic Benefit v NFE Alg: {}, PS: {}, Seed: {}".format(algorithm.__name__, str(popsize),
+	                                                                            str(seed)),
+	                  experiment=experiment,
+	                  show=show_plots,
+	                  filename=os.path.join(settings.BASE_DIR, "data", "results",
+	                                        "convergence_obj2_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__,
+	                                                                                                str(seed),
+	                                                                                                str(NFE),
+	                                                                                                str(popsize)))
+	                  )
+
+
+def run_experimenter(NFE=500,
+                     popsizes=(25, 50),
+                     algorithms=(NSGAII, (EpsNSGAII, {"epsilons": 2}), OMOPSO, SMPSO, GDE3, SPEA2),
+                     seeds=(20200224, 19991201, 18000408, 31915071),
+                     output_shelf=r"C:\Users\dsx\Code\belleflopt\experimenter.shelf",
+                     problem_from_shelf=False,
+                     resume=False):
+
+	with shelve.open(output_shelf) as shelf:  # save the results out to a file
+		if problem_from_shelf:
+			problem = shelf['problem']
+		else:
+			problem = run_optimize_new(economic_water_proportion=0.75, use_comet=False, run_problem=False)
+			shelf['problem'] = problem
+			shelf.sync()
+
+		if resume is True:
+			results = shelf['results']
+		else:
+			results = {}
+
+	for algorithm in algorithms:
+		if type(algorithm) == tuple:  # if the algorithm has arguments, then we need to split it out so we can send them in
+			algorithm_args = algorithm[1]
+			algorithm = algorithm[0]
+		else:
+			algorithm_args = {}
+
+		if algorithm.__name__ not in results:
+			results[algorithm.__name__] = {}
+		for seed in seeds:
+			if seed not in results[algorithm.__name__]:
+				results[algorithm.__name__][seed] = {}
+			random.seed = seed
+			for popsize in popsizes:
+				log.info("{}, {}, {}".format(algorithm.__name__, seed, popsize))
+				if popsize in results[algorithm.__name__][seed]:  # if the key already exists, it means we're resuming and this already ran
+					continue
+
+				problem.reset()
+				eflows_opt = algorithm(problem, generator=optimize.InitialFlowsGenerator(), population_size=popsize, **algorithm_args)
+				eflows_opt.run(NFE)
+
+				make_plots(eflows_opt, problem, NFE, algorithm, seed, popsize, experiment=None, show_plots=False)
+
+				results[algorithm.__name__][seed][popsize] = eflows_opt
+				with shelve.open(output_shelf) as shelf:  # save the results out to a file after each round
+					shelf["results"] = results
+					shelf.sync()
+
 
 def run_optimize(algorithm=NSGAII, NFE=1000, popsize=25, seed=20181214, show_plots=False):
 	"""
@@ -173,6 +250,26 @@ def run_optimize(algorithm=NSGAII, NFE=1000, popsize=25, seed=20181214, show_plo
 	experiment.end()
 
 	return file_path
+
+
+def validate_flow_methods():
+	problem = run_optimize_new(run_problem=False)
+
+	measurements = numpy.linspace(0, 1, 101)
+	for measurement in measurements:
+		log.info(measurement)
+		initial_flows = optimize.SimpleInitialFlowsGenerator(measurement)
+
+		runner = NSGAII(problem, generator=initial_flows, population_size=1)  # shouldn't matter what algorithm we use - we only do 1 NFE
+		runner.run(1)  # run it for 1 NFE just to see what these initial flows do
+
+	_plot_convergence(problem.iterations, problem.objective_1,
+	                  "Environmental benefit with increasing proportion of flows",
+	                  experiment=None,
+	                  show=True,
+	                  filename=os.path.join(settings.BASE_DIR, "data", "results","validation_plot.png"))
+
+
 
 
 def _plot(optimizer, title, experiment=None, filename=None, show=False):
@@ -338,3 +435,5 @@ def plot_segment_component_day_benefit(segment_id, component_id, day=100, screen
 	                            screen=screen,
 	                            output_path=output_path,
 								day_of_year=day)
+
+
