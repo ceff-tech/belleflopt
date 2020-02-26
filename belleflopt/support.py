@@ -181,6 +181,10 @@ def run_experimenter(NFE=500,
 				results[algorithm.__name__][seed][popsize] = eflows_opt
 				with shelve.open(output_shelf) as shelf:  # save the results out to a file after each round
 					shelf["results"] = results
+
+					# these will save some space in the results
+					shelf["results"][algorithm.__name__][seed][popsize].problem.stream_network = None
+					shelf["results"][algorithm.__name__][seed][popsize].problem.types = None
 					shelf.sync()
 
 
