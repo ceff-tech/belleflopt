@@ -19,6 +19,7 @@ class Command(BaseCommand):
 	def add_arguments(self, parser):
 		parser.add_argument('--nfe', nargs='+', type=int, dest="nfe", default=10000,)
 		parser.add_argument('--model_name', nargs='+', type=str, dest="model_name", default="anderson_creek_thesis",)
+		parser.add_argument('--pop_size', nargs='+', type=int, dest="pop_size", default="50",)
 
 	def handle(self, *args, **options):
 
@@ -32,4 +33,9 @@ class Command(BaseCommand):
 		else:
 			model_name = "anderson_creek_thesis"
 
-		support.run_optimize_new(NFE=nfe, model_run_name=model_name)
+		if options['pop_size']:
+			pop_size = options['pop_size'][0]
+		else:
+			pop_size = 50
+
+		support.run_optimize_new(NFE=nfe, model_run_name=model_name, popsize=pop_size)
