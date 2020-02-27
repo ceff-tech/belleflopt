@@ -20,6 +20,7 @@ class Command(BaseCommand):
 		parser.add_argument('--nfe', nargs='+', type=int, dest="nfe", default=10000,)
 		parser.add_argument('--model_name', nargs='+', type=str, dest="model_name", default="anderson_creek_thesis",)
 		parser.add_argument('--pop_size', nargs='+', type=int, dest="pop_size", default="50",)
+		parser.add_argument('--use_comet', nargs='+', type=int, dest="use_comet", default=0,)
 
 	def handle(self, *args, **options):
 
@@ -38,4 +39,9 @@ class Command(BaseCommand):
 		else:
 			pop_size = 50
 
-		support.run_optimize_new(NFE=nfe, model_run_name=model_name, popsize=pop_size)
+		if options['use_comet']:
+			use_comet = options['use_comet'][0] == 1
+		else:
+			use_comet = False
+
+		support.run_optimize_new(NFE=nfe, model_run_name=model_name, popsize=pop_size, use_comet=use_comet)
