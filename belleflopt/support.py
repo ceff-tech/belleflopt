@@ -134,11 +134,11 @@ def make_plots(model_run, problem, NFE, algorithm, seed, popsize, experiment=Non
 	                  )
 
 
-def run_experimenter(NFE=1000,
-                     popsizes=(25, 50),
+def run_experimenter(NFE=50000,
+                     popsizes=(25, 50, 100),
                      algorithms=(NSGAII, SPEA2, SMPSO, GDE3),
                      seeds=(20200224, 19991201, 18000408, 31915071),
-                     output_shelf=r"C:\Users\dsx\Code\belleflopt\experimenter.shelf",
+                     output_shelf=os.path.join(settings.BASE_DIR, "experimenter.shelf"),
                      problem_from_shelf=False,
                      resume=False):
 
