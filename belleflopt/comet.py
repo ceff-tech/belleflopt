@@ -12,7 +12,8 @@ def new_experiment():
 	)
 
 	experiment.disable_mp()
-	
+
+	return experiment
 
 
 def log_metric(name, values, experiment):
