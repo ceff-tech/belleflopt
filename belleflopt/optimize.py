@@ -108,6 +108,10 @@ class ModelStreamSegment(object):
 														.order_by("water_year_day")
 		self._local_available = numpy.array([float(day_flow.estimated_local_flow) for day_flow in local_flows_objects])
 
+		if self._local_available.shape[0] == 0:
+			log.warning("No flows for segment {} - Removing from model because leaving it in means the model may fail! It may still fail if this removal results in a loss of connectivity".format(self.comid))
+			raise RuntimeError("No flows for segment {}. Removing from model".format(self.comid))
+
 	@property
 	def eflows_benefit(self):
 		return self.stream_segment.get_benefit_for_timeseries(self.eflows_water, daily=False, collapse_function=numpy.max)
@@ -173,7 +177,10 @@ class StreamNetwork(object):
 	def build(self, django_segments):
 		log.info("Initiating network and pulling daily flow data")
 		for segment in django_segments.all():
-			self.stream_segments[segment.com_id] = ModelStreamSegment(segment, segment.com_id, network=self)
+			try:
+				self.stream_segments[segment.com_id] = ModelStreamSegment(segment, segment.com_id, network=self)
+			except RuntimeError:  # We use RuntimeError to indicate a flow problem that this clause prevents - it raises a warning where the exception originates
+				pass
 
 		log.info("Making network connectivity")
 		for segment in self.stream_segments.values():

@@ -46,7 +46,7 @@ def water_year(year, month):
 		return year
 
 
-def run_optimize_new(algorithm=NSGAII, NFE=1000, popsize=25, starting_water_price=800, economic_water_proportion = 0.99, seed=20200224, model_run_name="navarro_thesis", use_comet=True, show_plots=True, run_problem=True):
+def run_optimize_new(algorithm=NSGAII, NFE=1000, popsize=25, starting_water_price=800, economic_water_proportion = 0.99, seed=20200224, model_run_name="anderson_creek_thesis", use_comet=True, show_plots=True, run_problem=True):
 	"""
 		Runs a single optimization run, defaulting to 1000 NFE using NSGAII. Won't output plots to screen
 		by default. Outputs tables and figures to the data/results folder.
@@ -68,7 +68,8 @@ def run_optimize_new(algorithm=NSGAII, NFE=1000, popsize=25, starting_water_pric
 	                           "popsize": popsize,
 	                           "seed": seed,
 	                           "starting_water_price":starting_water_price,
-	                           "economic_water_proportion": economic_water_proportion
+	                           "economic_water_proportion": economic_water_proportion,
+		                       "model_name": model_run_name
 	                           })
 	else:
 		experiment = None
@@ -133,9 +134,9 @@ def make_plots(model_run, problem, NFE, algorithm, seed, popsize, experiment=Non
 	                  )
 
 
-def run_experimenter(NFE=500,
+def run_experimenter(NFE=1000,
                      popsizes=(25, 50),
-                     algorithms=(NSGAII, (EpsNSGAII, {"epsilons": 2}), OMOPSO, SMPSO, GDE3, SPEA2),
+                     algorithms=(NSGAII, SPEA2, SMPSO, GDE3),
                      seeds=(20200224, 19991201, 18000408, 31915071),
                      output_shelf=r"C:\Users\dsx\Code\belleflopt\experimenter.shelf",
                      problem_from_shelf=False,
@@ -256,8 +257,8 @@ def run_optimize(algorithm=NSGAII, NFE=1000, popsize=25, seed=20181214, show_plo
 	return file_path
 
 
-def validate_flow_methods():
-	problem = run_optimize_new(run_problem=False)
+def validate_flow_methods(model_run_name="lower_navarro_thesis"):
+	problem = run_optimize_new(run_problem=False, model_run_name=model_run_name)
 
 	measurements = numpy.linspace(0, 1, 101)
 	for measurement in measurements:
@@ -268,7 +269,7 @@ def validate_flow_methods():
 		runner.run(1)  # run it for 1 NFE just to see what these initial flows do
 
 	_plot_convergence(problem.iterations, problem.objective_1,
-	                  "Environmental benefit with increasing proportion of flows",
+	                  "Environmental benefit w/percent of flows: {}".format(model_run_name),
 	                  experiment=None,
 	                  show=True,
 	                  filename=os.path.join(settings.BASE_DIR, "data", "results","validation_plot.png"))

@@ -10,6 +10,7 @@ from eflows_optimization.settings import DEFAULT_COLORRAMP, GRAYSCALE_COLORRAMP
 
 log = logging.getLogger("belleflopt.benefit")
 
+
 class BenefitItem(object):
 	"""
 		Could be the benefit on a day of the year or of a specific flow. Has a window of values
@@ -314,8 +315,12 @@ class BenefitBox(object):
 		:param timeseries:
 		:return:
 		"""
-		days = range(1, 366)  # index 0 == day 1 of water year, index 364 == day 365 of water year
-		return self.vectorized_single_day_flow_benefit(timeseries, days)
+		if self.start_day_of_water_year < self.end_day_of_water_year: # subset the evaluation to only the times that are valid for this component. Everything else will be 0 anyway, so this could be faster
+			days = range(self.start_day_of_water_year, self.end_day_of_water_year + 1)  # index 0 == day 1 of water year, index 364 == day 365 of water year
+			return self.vectorized_single_day_flow_benefit(timeseries[self.start_day_of_water_year:self.end_day_of_water_year + 1], days)
+		else:
+			days = range(1, 366)
+			return self.vectorized_single_day_flow_benefit(timeseries, days)
 
 	def plot_flow_benefit(self, min_flow=None, max_flow=None, day_of_year=100, screen=True):
 		"""

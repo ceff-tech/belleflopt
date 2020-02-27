@@ -517,11 +517,27 @@ def load_flows(database=os.path.join(settings.BASE_DIR, "data", "navarro_flows",
 				water_years=(2010, 2011),
                 model_run_name="navarro_thesis",
 				clear_existing=True,
-                allocate_downstream=True):
+                allocate_downstream=True,
+                filter_comids=None):
+
+	"""
+	:param database:
+	:param table:
+	:param comid_field:
+	:param year_field:
+	:param month_field:
+	:param day_field:
+	:param flow_field:
+	:param water_years:
+	:param model_run_name:
+	:param clear_existing:
+	:param allocate_downstream:
+	:return:
+	"""
 
 	if clear_existing:
 		log.info("Deleting existing flow data")
-		models.DailyFlow.objects.all().delete()
+		models.DailyFlow.objects.filter(model_run__name=model_run_name).delete()
 
 	db_connection = sqlite3.connect(database)
 	cursor = db_connection.cursor()
@@ -529,10 +545,15 @@ def load_flows(database=os.path.join(settings.BASE_DIR, "data", "navarro_flows",
 	# query gets all the flows for a single water year when properly parameterized
 	query = """SELECT {}, {}, {}, {}, {}
 				FROM {}
-				WHERE ({} >= 10 AND {} = ?)
-				   OR ({} < 10 AND {} = ?)
+				WHERE (({} >= 10 AND {} = ?)
+				   OR ({} < 10 AND {} = ?))
 	""".format(comid_field, year_field, month_field, day_field, flow_field, table,
 	           month_field, year_field, month_field, year_field,)  # note string interpolation - not a web safe query!
+
+	if filter_comids is not None:
+		query += "AND {} IN ('{}')".format(comid_field, "','".join(filter_comids))
+
+	print(query)
 
 	flow_objects = []
 
@@ -550,7 +571,7 @@ def load_flows(database=os.path.join(settings.BASE_DIR, "data", "navarro_flows",
 				flow_date=arrow.Arrow(flow[1], flow[2], flow[3]).date(),
 				water_year=support.water_year(year=flow[1], month=flow[2]),
 				water_year_day=support.day_of_water_year(year=flow[1], month=flow[2], day=flow[3]),
-				estimated_flow=flow[4]
+				estimated_total_flow=flow[4]
 			))
 
 	log.info("Bulk inserting records")
@@ -563,6 +584,46 @@ def load_flows(database=os.path.join(settings.BASE_DIR, "data", "navarro_flows",
 		model_run.preprocess_flows()
 
 	model_run.update_segments()
+
+
+def load_subset_flows(model_run_name="anderson_creek_thesis",
+                      segments=r"C:\Users\dsx\Dropbox\Code\belleflopt\data\navarro_flows\anderson_creek_streams_filtered.csv",
+                      stream_comid_field="COMID",
+                      water_years=(2010,)):
+	"""
+		Makes a new model run, attaches the segments to that model run, and loads the flows for the specified COMIDs
+		to the model run - assumes that the flows are available in the database that's a default argument to load_flows
+	:param model_run_name:
+	:param segments:
+	:param stream_comid_field:
+	:return:
+	"""
+
+	# make the model run if it doesn't exist
+	try:
+		model_run = models.ModelRun.objects.get(name=model_run_name)
+	except models.ModelRun.DoesNotExist:
+		model_run = models.ModelRun(
+			name=model_run_name
+		)
+		model_run.save()
+
+	comids = []
+	# attach the stream segments
+	with open(segments, 'r') as segment_fh:
+		segments = csv.DictReader(segment_fh)
+		for segment in segments:
+			comids.append(segment[stream_comid_field])
+			stream_segment = models.StreamSegment.objects.get(com_id=segment[stream_comid_field])
+			model_run.segments.add(stream_segment)
+
+	# save the stream segments
+	model_run.save()
+
+	load_flows(water_years=water_years,
+	           model_run_name=model_run_name,
+	           clear_existing=True,
+	           filter_comids=comids)
 
 
 def load_species(database=r"C:\Users\dsx\Dropbox\Code\ProbabilisticPISCES\results\results_2019_10_22_base90_decay50.gpkg",
