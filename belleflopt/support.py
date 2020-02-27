@@ -140,13 +140,20 @@ def run_experimenter(NFE=50000,
                      seeds=(20200224, 19991201, 18000408, 31915071),
                      output_shelf=os.path.join(settings.BASE_DIR, "experimenter.shelf"),
                      problem_from_shelf=False,
-                     resume=False):
+                     resume=False,
+                     model_run_name="anderson_creek_thesis",
+                     starting_water_price=800,
+                     economic_water_proportion=0.75, ):
 
 	with shelve.open(output_shelf) as shelf:  # save the results out to a file
 		if problem_from_shelf:
 			problem = shelf['problem']
 		else:
-			problem = run_optimize_new(economic_water_proportion=0.75, use_comet=False, run_problem=False)
+			problem = run_optimize_new(model_run_name=model_run_name,
+			                           starting_water_price=starting_water_price,
+			                           economic_water_proportion=economic_water_proportion,
+			                           use_comet=False,
+			                           run_problem=False)
 			shelf['problem'] = problem
 			shelf.sync()
 
@@ -173,11 +180,21 @@ def run_experimenter(NFE=50000,
 				if popsize in results[algorithm.__name__][seed]:  # if the key already exists, it means we're resuming and this already ran
 					continue
 
+				experiment = comet.new_experiment()
+				experiment.log_parameters({"algorithm": algorithm,
+				                           "NFE": NFE,
+				                           "popsize": popsize,
+				                           "seed": seed,
+				                           "starting_water_price": starting_water_price,
+				                           "economic_water_proportion": economic_water_proportion,
+				                           "model_name": model_run_name
+				                           })
+
 				problem.reset()
 				eflows_opt = algorithm(problem, generator=optimize.InitialFlowsGenerator(), population_size=popsize, **algorithm_args)
 				eflows_opt.run(NFE)
 
-				make_plots(eflows_opt, problem, NFE, algorithm, seed, popsize, experiment=None, show_plots=False)
+				make_plots(eflows_opt, problem, NFE, algorithm, seed, popsize, experiment=experiment, show_plots=False)
 
 				results[algorithm.__name__][seed][popsize] = eflows_opt
 				with shelve.open(output_shelf) as shelf:  # save the results out to a file after each round
@@ -187,6 +204,8 @@ def run_experimenter(NFE=50000,
 					shelf["results"][algorithm.__name__][seed][popsize].problem.stream_network = None
 					shelf["results"][algorithm.__name__][seed][popsize].problem.types = None
 					shelf.sync()
+
+				experiment.end()
 
 
 def run_optimize(algorithm=NSGAII, NFE=1000, popsize=25, seed=20181214, show_plots=False):
