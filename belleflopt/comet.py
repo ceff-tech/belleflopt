@@ -4,11 +4,15 @@ import comet_ml
 
 
 def new_experiment():
-	return comet_ml.Experiment(
+	experiment = comet_ml.Experiment(
 		project_name="belleflopt",
 		workspace="nickrsan",
-		api_key=os.environ["COMET_ML_API_KEY"]
+		api_key=os.environ["COMET_ML_API_KEY"],
+		auto_output_logging="simple",
 	)
+
+	experiment.disable_mp()
+	
 
 
 def log_metric(name, values, experiment):

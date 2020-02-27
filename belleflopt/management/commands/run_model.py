@@ -40,7 +40,7 @@ class Command(BaseCommand):
 			pop_size = 50
 
 		if options['use_comet']:
-			use_comet = options['use_comet'][0] == 1
+			use_comet = int(options['use_comet'][0]) == 1
 		else:
 			use_comet = False
 
