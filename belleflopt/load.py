@@ -586,8 +586,8 @@ def load_flows(database=os.path.join(settings.BASE_DIR, "data", "navarro_flows",
 	model_run.update_segments()
 
 
-def load_subset_flows(model_run_name="anderson_creek_thesis",
-                      segments=r"C:\Users\dsx\Dropbox\Code\belleflopt\data\navarro_flows\anderson_creek_streams_filtered.csv",
+def load_subset_flows(model_run_name="navarro_24metric_thesis",
+                      segments=r"C:\Users\dsx\Dropbox\Code\belleflopt\data\navarro_flows\navarro_24metric_limited.csv",
                       stream_comid_field="COMID",
                       water_years=(2010,)):
 	"""

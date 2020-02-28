@@ -7,6 +7,8 @@ import numpy
 from platypus import Problem, Real
 from platypus.operators import Generator, Solution
 
+from matplotlib import pyplot as plt
+
 from belleflopt import models
 from belleflopt import economic_components
 
@@ -162,6 +164,29 @@ class ModelStreamSegment(object):
 	def set_allocation(self, allocation):
 		self.eflows_proportion = allocation  # should be a numpy array with 365 elements
 
+	def plot_results_with_components(self, screen=True, result="eflows_water"):
+
+		components = self.stream_segment.segmentcomponent_set.all()
+		fig, ax = plt.subplots(1)
+
+		for component in components:
+			try:
+				rect = plt.Rectangle((component.start_day_ramp, component.minimum_magnitude_ramp),
+			                         component.duration_ramp,
+			                         component.maximum_magnitude_ramp - component.minimum_magnitude_ramp,
+			                         linewidth=1, edgecolor='r', facecolor='none', fill=False)
+			except TypeError:
+				continue
+
+			ax.add_patch(rect)
+
+		ax.plot(range(1, 366), getattr(self, result))
+		ax.autoscale()
+
+		if screen:
+			plt.show()
+
+		return fig, ax
 
 class StreamNetwork(object):
 

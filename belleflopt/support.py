@@ -98,7 +98,7 @@ def run_optimize_new(algorithm=NSGAII, NFE=1000, popsize=25, starting_water_pric
 			experiment.end()
 
 	#return file_path
-	return problem
+	return {"problem": problem, "solution": eflows_opt}
 
 
 def make_plots(model_run, problem, NFE, algorithm, seed, popsize, experiment=None, show_plots=False,):
@@ -153,7 +153,7 @@ def run_experimenter(NFE=50000,
 			                           starting_water_price=starting_water_price,
 			                           economic_water_proportion=economic_water_proportion,
 			                           use_comet=False,
-			                           run_problem=False)
+			                           run_problem=False)["problem"]
 			shelf['problem'] = problem
 			shelf.sync()
 
@@ -277,7 +277,7 @@ def run_optimize(algorithm=NSGAII, NFE=1000, popsize=25, seed=20181214, show_plo
 
 
 def validate_flow_methods(model_run_name="lower_navarro_thesis"):
-	problem = run_optimize_new(run_problem=False, model_run_name=model_run_name)
+	problem = run_optimize_new(run_problem=False, model_run_name=model_run_name)["problem"]
 
 	measurements = numpy.linspace(0, 1, 101)
 	for measurement in measurements:

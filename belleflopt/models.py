@@ -342,6 +342,8 @@ class ModelRun(models.Model):
 	date_run = models.DateTimeField(default=django.utils.timezone.now)
 	segments = models.ManyToManyField(StreamSegment)  # this lets us tag stream segments as part of a model run
 
+	# daily_flows
+
 	def preprocess_flows(self):
 		"""
 			Loops through every day and segment and figures out how much of each segment's flow is coming from upstream
@@ -375,6 +377,7 @@ class ModelRun(models.Model):
 						                                            day))
 							continue
 
+						# attach the current segment's flow to the downstream so it knows how much came from upstream!
 						downstream_flow_day.estimated_upstream_flow += segment_flow.estimated_total_flow
 						downstream_flow_day.save()
 

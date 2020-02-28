@@ -116,7 +116,7 @@ LOGGING = {
         'console': {
             'class': 'logging.StreamHandler',
             'formatter': 'simple',
-            'level': 'DEBUG',
+            'level': 'INFO',
         },
         'file_debug': {
             'level': 'DEBUG',
@@ -145,7 +145,7 @@ LOGGING = {
 
         'belleflopt': {
             'handlers': ['console', 'file_debug'],
-            'level': 'INFO'
+            'level': 'DEBUG'
         },
     },
 
