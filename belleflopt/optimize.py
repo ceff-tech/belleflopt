@@ -164,12 +164,26 @@ class ModelStreamSegment(object):
 	def set_allocation(self, allocation):
 		self.eflows_proportion = allocation  # should be a numpy array with 365 elements
 
-	def plot_results_with_components(self, screen=True, result="eflows_water"):
+	def plot_results_with_components(self, screen=True, result="eflows_water", skip_components=()):
+		"""
+			Plots a flow timeseries with red boxes for each component for the segment
+			layered on top. By default shows the eflows allocation, but by passing the name
+			of the attribute as a string to "result", you can plot a different timeseries.
+		:param screen:
+		:param result:
+		:return:
+		"""
 
 		components = self.stream_segment.segmentcomponent_set.all()
 		fig, ax = plt.subplots(1)
 
+		# they can provide a FlowComponent queryset/iterable to skip, get the IDs
+		skip_components = [component.id for component in skip_components]
+
 		for component in components:
+			if component.component.id in skip_components:  # if the component ID matches one to skip, go to next
+				continue
+
 			try:
 				rect = plt.Rectangle((component.start_day_ramp, component.minimum_magnitude_ramp),
 			                         component.duration_ramp,

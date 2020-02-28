@@ -340,6 +340,7 @@ class HUC(models.Model):
 class ModelRun(models.Model):
 	name = models.CharField(max_length=255, null=True, blank=True)
 	date_run = models.DateTimeField(default=django.utils.timezone.now)
+	description = models.TextField(null=True, blank=True)
 	segments = models.ManyToManyField(StreamSegment)  # this lets us tag stream segments as part of a model run
 
 	# daily_flows
