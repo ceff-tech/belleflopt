@@ -92,8 +92,8 @@ def spring_recession_benefit_maker(segment_component,
 
 	# make the tuples of actual rate of change values by retrieving them from the rate of change metric
 	rate_of_change = segment_component.descriptors.get(flow_metric__metric=rate_of_change_metric)
-	normal_rates = (getattr(rate_of_change, full_benefit_values[0]), getattr(rate_of_change, full_benefit_values[1]))
-	steep_rates = (getattr(rate_of_change, steep_benefit_values[0]), getattr(rate_of_change, steep_benefit_values[1]))
+	normal_rates = (float(getattr(rate_of_change, full_benefit_values[0])), float(getattr(rate_of_change, full_benefit_values[1])))
+	steep_rates = (float(getattr(rate_of_change, steep_benefit_values[0])), float(getattr(rate_of_change, steep_benefit_values[1])))
 
 
 	b.setup_recession_benefit(normal_rates=normal_rates,

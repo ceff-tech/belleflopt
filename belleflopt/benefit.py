@@ -75,10 +75,10 @@ class BenefitItem(object):
 			Lets you explicitly set the q values if there is logic elsewhere that defines them
 		:return:
 		"""
-		self._q1 = q1
-		self._q2 = q2
-		self._q3 = q3
-		self._q4 = q4
+		self._q1 = float(q1)
+		self._q2 = float(q2)
+		self._q3 = float(q3)
+		self._q4 = float(q4)
 
 		self._check_rollover()
 
@@ -315,12 +315,12 @@ class BenefitBox(object):
 		:param timeseries:
 		:return:
 		"""
-		if self.start_day_of_water_year < self.end_day_of_water_year: # subset the evaluation to only the times that are valid for this component. Everything else will be 0 anyway, so this could be faster
-			days = range(self.start_day_of_water_year, self.end_day_of_water_year + 1)  # index 0 == day 1 of water year, index 364 == day 365 of water year
-			return self.vectorized_single_day_flow_benefit(timeseries[self.start_day_of_water_year:self.end_day_of_water_year + 1], days)
-		else:
-			days = range(1, 366)
-			return self.vectorized_single_day_flow_benefit(timeseries, days)
+		#if self.start_day_of_water_year < self.end_day_of_water_year: # subset the evaluation to only the times that are valid for this component. Everything else will be 0 anyway, so this could be faster
+		#	days = range(self.start_day_of_water_year, self.end_day_of_water_year + 1)  # index 0 == day 1 of water year, index 364 == day 365 of water year
+		#	return self.vectorized_single_day_flow_benefit(timeseries[self.start_day_of_water_year:self.end_day_of_water_year + 1], days)
+		#else:
+		days = range(1, 366)
+		return self.vectorized_single_day_flow_benefit(timeseries, days)
 
 	def plot_flow_benefit(self, min_flow=None, max_flow=None, day_of_year=100, screen=True):
 		"""
@@ -653,7 +653,7 @@ class RecessionBenefitBox(BenefitBox):
 
 			# calculate the rate of drop - we add 1 for current day because of slicing we do in this loop, then "day" is the previous day
 			rate_of_drop = float(timeseries[day] - timeseries[day+1])/timeseries[day]  # numerator reversed so it can be positive and we don't need to use abs (and don't want to - a positive 0.04 rate is *not* same as negation 0.04 rate
-			log.debug(rate_of_drop)
+
 
 			if rate_of_drop > self.fail_rate_of_change:
 				if time_in_recession > self.min_time_before_fail:

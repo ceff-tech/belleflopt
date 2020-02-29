@@ -151,9 +151,13 @@ def load_flow_metrics():
 	                  description="Spring flow recession rate (Percent decrease per day over spring recession period)")
 
 	# Dry Season metrics
-	dry_base.metrics.create(characteristic="Magnitude (cfs)",
+	ds_mag_50 = models.FlowMetric(characteristic="Magnitude (cfs)",
 	                  metric="DS_Mag_50",
 	                  description="Base flow magnitude (50th percentile of daily flow within summer season, calculated on an annual basis)")
+	ds_mag_50.save()
+	dry_base.metrics.add(ds_mag_50)
+	spring_recession.metrics.add(ds_mag_50)
+
 	dry_base.metrics.create(characteristic="Magnitude (cfs)",
 	                  metric="DS_Mag_90",
 	                  description="Base flow magnitude (90th percentile of daily flow within summer season, calculated on an annual basis)")
@@ -294,7 +298,7 @@ def _validate_records(csv_path):
 	log.debug(max(all_numbers))
 
 
-def load_single_flow_metric_data(csv_path, com_id_field="COM_ID"):
+def load_single_flow_metric_data(csv_path):
 	"""
 		Given a CSV of modeled stream segment flow metric percentiles, loads this data. Does NOT fill in the actual
 		component values for the segments based on the loaded data though.
@@ -586,10 +590,13 @@ def load_flows(database=os.path.join(settings.BASE_DIR, "data", "navarro_flows",
 	model_run.update_segments()
 
 
-def load_subset_flows(model_run_name="navarro_24metric_thesis",
-                      segments=r"C:\Users\dsx\Dropbox\Code\belleflopt\data\navarro_flows\navarro_24metric_limited.csv",
+def load_subset_flows(model_run_name="upper_cosumnes_subset_2010",
+                      segments=r"C:\Users\dsx\Dropbox\Code\belleflopt\data\cosumnes_flows\cosumnes_segments_24metric_connectivity.csv",
+                      flows_db=r"C:\Users\dsx\Dropbox\Code\belleflopt\data\cosumnes_flows\cosumnes_data.sqlite",
+                      flows_table="estimated_daily_all",
                       stream_comid_field="COMID",
-                      water_years=(2010,)):
+                      water_years=(2010,),
+                      clear_existing=True):
 	"""
 		Makes a new model run, attaches the segments to that model run, and loads the flows for the specified COMIDs
 		to the model run - assumes that the flows are available in the database that's a default argument to load_flows
@@ -598,6 +605,13 @@ def load_subset_flows(model_run_name="navarro_24metric_thesis",
 	:param stream_comid_field:
 	:return:
 	"""
+
+	if clear_existing:
+		try:
+			modelrun = models.ModelRun.objects.get(name=model_run_name)
+			modelrun.delete()
+		except models.ModelRun.DoesNotExist:
+			pass
 
 	# make the model run if it doesn't exist
 	try:
@@ -620,10 +634,14 @@ def load_subset_flows(model_run_name="navarro_24metric_thesis",
 	# save the stream segments
 	model_run.save()
 
-	load_flows(water_years=water_years,
+	load_flows(database=flows_db,
+	           table=flows_table,
+				water_years=water_years,
 	           model_run_name=model_run_name,
 	           clear_existing=True,
 	           filter_comids=comids)
+
+	# load_species(model_run=model_run)
 
 
 def load_species(database=r"C:\Users\dsx\Dropbox\Code\ProbabilisticPISCES\results\results_2019_10_22_base90_decay50.gpkg",

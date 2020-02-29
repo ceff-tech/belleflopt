@@ -104,15 +104,18 @@ class ModelStreamSegment(object):
 		self.get_local_flows()
 
 	def get_local_flows(self):
-		local_flows_objects = models.DailyFlow.objects.filter(model_run=self.full_network.model_run,
-		                                                      water_year=self.full_network.water_year,
-		                                                      stream_segment=self.stream_segment) \
-														.order_by("water_year_day")
-		self._local_available = numpy.array([float(day_flow.estimated_local_flow) for day_flow in local_flows_objects])
+		self._local_available = self._get_local_flows(use_property="estimated_local_flow")
 
 		if self._local_available.shape[0] == 0:
 			log.warning("No flows for segment {} - Removing from model because leaving it in means the model may fail! It may still fail if this removal results in a loss of connectivity".format(self.comid))
 			raise RuntimeError("No flows for segment {}. Removing from model".format(self.comid))
+
+	def _get_local_flows(self, use_property="estimated_local_flow"):
+		local_flows_objects = models.DailyFlow.objects.filter(model_run=self.full_network.model_run,
+		                                                      water_year=self.full_network.water_year,
+		                                                      stream_segment=self.stream_segment) \
+														.order_by("water_year_day")
+		return numpy.array([float(getattr(day_flow, use_property)) for day_flow in local_flows_objects])
 
 	@property
 	def eflows_benefit(self):
@@ -137,6 +140,15 @@ class ModelStreamSegment(object):
 		:return:
 		"""
 		return self._local_available + self.upstream_available
+
+	@property
+	def raw_available(self):
+		"""
+			What's the raw daily flow, ignoring where it's coming from
+		:return:
+		"""
+
+		return self._get_local_flows(use_property="estimated_total_flow")
 
 	@property
 	def upstream_available(self):
@@ -202,6 +214,7 @@ class ModelStreamSegment(object):
 
 		return fig, ax
 
+
 class StreamNetwork(object):
 
 	stream_segments = collections.OrderedDict()
@@ -215,7 +228,7 @@ class StreamNetwork(object):
 
 	def build(self, django_segments):
 		log.info("Initiating network and pulling daily flow data")
-		for segment in django_segments.all():
+		for segment in django_segments.all().order_by("-total_upstream_area"):
 			try:
 				self.stream_segments[segment.com_id] = ModelStreamSegment(segment, segment.com_id, network=self)
 			except RuntimeError:  # We use RuntimeError to indicate a flow problem that this clause prevents - it raises a warning where the exception originates

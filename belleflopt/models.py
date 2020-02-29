@@ -87,9 +87,13 @@ class StreamSegment(models.Model):
 		for component in self._runtime_components:
 			try:
 				component.build()
-				component.make_benefit()
 			except:
 				log.debug("Component build failed for {} on segment {}".format(component.component.name, str(self)))
+			try:
+				component.make_benefit()
+			except:
+				raise
+				log.debug("Component benefit setup failed for {} on segment {}".format(component.component.name, str(self)))
 
 	def get_benefit_for_timeseries(self, timeseries, daily=False, collapse_function=numpy.max):
 		"""
@@ -112,7 +116,7 @@ class StreamSegment(models.Model):
 				benefits[index] = component.benefit.get_benefit_for_timeseries(timeseries)
 				index += 1
 			except:
-				log.debug("failed to calculate benefit for {} on segment {}".format(component.component.name, str(self)))
+				log.warning("failed to calculate benefit for {} on segment {}".format(component.component.name, str(self)))
 
 		daily_values = collapse_function(benefits, axis=0)
 		if daily:
@@ -300,6 +304,9 @@ class SegmentPresence(models.Model):
 	"""
 		The through model for species presence, since we're storing the probability of occurrence on the segment
 	"""
+	class Meta:
+		unique_together = ['stream_segment', 'species']
+
 	stream_segment = models.ForeignKey(StreamSegment, on_delete=models.DO_NOTHING, related_name="segment_presences")
 	species = models.ForeignKey(Species, on_delete=models.DO_NOTHING)
 
@@ -342,6 +349,7 @@ class ModelRun(models.Model):
 	date_run = models.DateTimeField(default=django.utils.timezone.now)
 	description = models.TextField(null=True, blank=True)
 	segments = models.ManyToManyField(StreamSegment)  # this lets us tag stream segments as part of a model run
+	water_year = models.SmallIntegerField()
 
 	# daily_flows
 
@@ -377,6 +385,13 @@ class ModelRun(models.Model):
 						                                            water_year,
 						                                            day))
 							continue
+						except DailyFlow.MultipleObjectsReturned:
+							log.error("Error - multiple downstreams returned for {}, water year {}, day {}".format(
+																	segment_flow.stream_segment.downstream.com_id,
+						                                            water_year,
+						                                            day)
+							)
+							raise
 
 						# attach the current segment's flow to the downstream so it knows how much came from upstream!
 						downstream_flow_day.estimated_upstream_flow += segment_flow.estimated_total_flow
@@ -398,7 +413,7 @@ class DailyFlow(models.Model):
 			models.Index(fields=['water_year_day'], name='idx_water_year_day'),
 		]
 
-	model_run = models.ForeignKey(ModelRun, on_delete=models.DO_NOTHING, related_name="daily_flows")
+	model_run = models.ForeignKey(ModelRun, on_delete=models.CASCADE, related_name="daily_flows")
 	stream_segment = models.ForeignKey(StreamSegment, on_delete=models.CASCADE, related_name="daily_flows")
 	flow_date = models.DateField()
 	water_year = models.SmallIntegerField()

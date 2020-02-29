@@ -46,7 +46,7 @@ def water_year(year, month):
 		return year
 
 
-def run_optimize_new(algorithm=NSGAII, NFE=1000, popsize=25, starting_water_price=800, economic_water_proportion = 0.99, seed=20200224, model_run_name="anderson_creek_thesis", use_comet=True, show_plots=True, run_problem=True):
+def run_optimize_new(algorithm=NSGAII, NFE=1000, popsize=25, starting_water_price=800, economic_water_proportion = 0.99, seed=20200224, model_run_name="upper_cosumnes_subset_2010", use_comet=True, show_plots=True, run_problem=True):
 	"""
 		Runs a single optimization run, defaulting to 1000 NFE using NSGAII. Won't output plots to screen
 		by default. Outputs tables and figures to the data/results folder.
@@ -78,7 +78,7 @@ def run_optimize_new(algorithm=NSGAII, NFE=1000, popsize=25, starting_water_pric
 
 	model_run = models.ModelRun.objects.get(name=model_run_name)
 
-	stream_network = optimize.StreamNetwork(model_run.segments, 2010, model_run)
+	stream_network = optimize.StreamNetwork(model_run.segments, model_run.water_year, model_run)
 	problem = optimize.StreamNetworkProblem(stream_network, starting_water_price=starting_water_price, total_units_needed_factor=economic_water_proportion)
 
 	log.info("Looking for {} CFS of water to extract".format(problem.stream_network.economic_benefit_calculator.total_units_needed))
@@ -141,7 +141,7 @@ def run_experimenter(NFE=50000,
                      output_shelf=os.path.join(settings.BASE_DIR, "experimenter.shelf"),
                      problem_from_shelf=False,
                      resume=False,
-                     model_run_name="anderson_creek_thesis",
+                     model_run_name="upper_cosumnes_subset_2010",
                      starting_water_price=800,
                      economic_water_proportion=0.75, ):
 
@@ -276,7 +276,7 @@ def run_optimize(algorithm=NSGAII, NFE=1000, popsize=25, seed=20181214, show_plo
 	return file_path
 
 
-def validate_flow_methods(model_run_name="lower_navarro_thesis"):
+def validate_flow_methods(model_run_name="upper_cosumnes_subset_2010"):
 	problem = run_optimize_new(run_problem=False, model_run_name=model_run_name)["problem"]
 
 	measurements = numpy.linspace(0, 1, 101)
