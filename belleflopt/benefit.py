@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 import seaborn
 from matplotlib.colors import ListedColormap
 
-from eflows_optimization.settings import DEFAULT_COLORRAMP, GRAYSCALE_COLORRAMP
+from eflows_optimization.settings import DEFAULT_COLORRAMP, GRAYSCALE_COLORRAMP, PREGENERATE_COMPONENTS
 
 log = logging.getLogger("belleflopt.benefit")
 
@@ -235,6 +235,12 @@ class BenefitBox(object):
 															self.end_day_of_water_year,)
 
 	def single_flow_benefit(self, flow, day_of_year, flow_margin=None, date_margin=None):
+		if PREGENERATE_COMPONENTS and self._annual_benefit is not None:
+			try:
+				return self.annual_benefit[int(flow)][int(day_of_year)]
+			except IndexError:  #  if it's not in the array, it's 0
+				return 0
+
 		if not flow_margin:
 			flow_margin = self.flow_item.margin
 		if not date_margin:

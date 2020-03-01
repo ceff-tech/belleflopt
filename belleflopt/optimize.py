@@ -12,6 +12,7 @@ from matplotlib import pyplot as plt
 
 from belleflopt import models
 from belleflopt import economic_components
+from eflows_optimization.local_settings import PREGENERATE_COMPONENTS
 
 log = logging.getLogger("eflows.optimization")
 
@@ -234,6 +235,8 @@ class ModelStreamSegment(object):
 
 		if screen:
 			plt.show()
+		else:
+			plt.close()
 
 		return fig, ax
 
@@ -251,7 +254,11 @@ class StreamNetwork(object):
 
 	def build(self, django_segments):
 		log.info("Initiating network and pulling daily flow data")
-		for segment in django_segments.all().order_by("-total_upstream_area"):
+
+		if PREGENERATE_COMPONENTS:
+			log.info("PREGENERATE_COMPONENTS is True, so network build will be slow")
+
+		for segment in django_segments.all():
 			try:
 				self.stream_segments[segment.com_id] = ModelStreamSegment(segment, segment.com_id, network=self)
 			except RuntimeError:  # We use RuntimeError to indicate a flow problem that this clause prevents - it raises a warning where the exception originates

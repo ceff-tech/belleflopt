@@ -92,8 +92,10 @@ class StreamSegment(models.Model):
 			try:
 				component.make_benefit()
 			except:
-				raise
 				log.debug("Component benefit setup failed for {} on segment {}".format(component.component.name, str(self)))
+
+			if settings.PREGENERATE_COMPONENTS:
+				_ = component.benefit.annual_benefit  # just generate it - we'll use it later
 
 	def get_benefit_for_timeseries(self, timeseries, daily=False, collapse_function=numpy.max):
 		"""

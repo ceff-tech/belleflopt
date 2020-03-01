@@ -5,7 +5,7 @@ from pyinstrument import Profiler
 profiler = Profiler()
 profiler.start()
 
-support.run_optimize_new(NFE=25, popsize=5, use_comet=False)
+support.run_optimize_new(NFE=50, popsize=10, use_comet=False)
 
 profiler.stop()
 

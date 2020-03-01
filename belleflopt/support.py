@@ -7,7 +7,7 @@ import shelve
 import numpy
 import arrow
 from matplotlib import pyplot as plt
-from platypus import NSGAII, OMOPSO, EpsNSGAII, SMPSO, GDE3, SPEA2
+from platypus import NSGAII, OMOPSO, EpsNSGAII, SMPSO, GDE3, SPEA2, nondominated
 import platypus
 
 from eflows_optimization import settings
@@ -88,6 +88,8 @@ def run_optimize_new(algorithm=NSGAII, NFE=1000, popsize=25, starting_water_pric
 	if run_problem:
 		eflows_opt.run(NFE)
 
+		log.info("Completed at {}".format(arrow.utcnow()))
+
 		make_plots(eflows_opt, problem, NFE, algorithm, seed, popsize, model_run_name, experiment, show_plots)
 
 		if use_comet:
@@ -101,9 +103,22 @@ def run_optimize_new(algorithm=NSGAII, NFE=1000, popsize=25, starting_water_pric
 	return {"problem": problem, "solution": eflows_opt}
 
 
+def write_variables_as_shelf(model_run, output_folder):
+	log.info("Writing out variables and objectives to shelf")
+	results = nondominated(model_run.result)
+	variables = [s.variables for s in results]
+	objectives = [s.objectives for s in results]
+	with shelve.open(os.path.join(output_folder, "variables.shelf")) as shelf:
+		shelf["variables"] = variables
+		shelf["objectives"] = objectives
+		shelf.sync()
+
+
 def make_plots(model_run, problem, NFE, algorithm, seed, popsize, name, experiment=None, show_plots=False,):
 	output_folder = os.path.join(settings.BASE_DIR, "data", "results", name, str(NFE), algorithm.__name__, str(seed), str(popsize))
 	os.makedirs(output_folder, exist_ok=True)
+
+	write_variables_as_shelf(model_run, output_folder)
 
 	_plot(model_run, "Pareto Front: {} NFE, PopSize: {}".format(NFE, popsize),
 	      experiment=experiment,
@@ -239,11 +254,10 @@ def validate_flow_methods(model_run_name="upper_cosumnes_subset_2010"):
 	                  filename=os.path.join(settings.BASE_DIR, "data", "results","validation_plot.png"))
 
 
-
-
 def _plot(optimizer, title, experiment=None, filename=None, show=False):
-	x = [s.objectives[0] for s in optimizer.result]
-	y = [s.objectives[1] for s in optimizer.result]
+	results = nondominated(optimizer.result)
+	x = [s.objectives[0] for s in results]
+	y = [s.objectives[1] for s in results]
 
 	if experiment is not None:
 		comet.log_metric("EnvironmentalBenefit", x, experiment=experiment)  # log the resulting values

@@ -8,6 +8,7 @@
 data/ffm_modeling/Data/NHD FFM predictions by WYT/*
 data/ffm_modeling/Data/NHD Attributes/WYT_ALL_COMIDS.csv
 data/ffm_modeling/Data/NHD FFM predictions/old_names/*
+data/results/*
 
 data/navarro_flows/data_processing/*
 data/navarro_flows/videos/*
