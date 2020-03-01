@@ -83,9 +83,10 @@ def spring_recession_benefit_maker(segment_component,
 									full_benefit_values=local_settings.SPRING_RECESSION_RATE_OF_CHANGE_FULL_VALUES,
 									steep_benefit_values=local_settings.SPRING_RECESSION_RATE_OF_CHANGE_STEEP_VALUES,
 									steep_reduction_factor=local_settings.SPRING_RECESSION_RATE_REDUCTION_VALUE,
-									very_steep_reduction_factor=local_settings.SPRING_RECESSION_RATE_VERY_STEEP_REDUCTION_VALUE,
+									very_steep=local_settings.SPRING_RECESSION_RATE_STEEP_REDUCTION_VALUE,
 									max_daily_rate=local_settings.SPRING_RECESSION_MAX_RATE,
-									min_time_before_fail=local_settings.SPRING_RECESSION_MIN_TIME_BEFORE_MAX_RATE_FAIL):
+									min_time_before_fail=local_settings.SPRING_RECESSION_MIN_TIME_BEFORE_MAX_RATE_FAIL,
+                                    max_time_before_fail=local_settings.SPRING_RECESSION_MAX_TIME_BEFORE_MAX_RATE_FAIL):
 
 	# set up the base benefit
 	b = _general_benefit_maker(segment_component, benefit_class=benefit.RecessionBenefitBox)
@@ -100,8 +101,10 @@ def spring_recession_benefit_maker(segment_component,
 								steep_rates=steep_rates,
 								fail_rate_of_change=max_daily_rate,
 								steep_reduction=steep_reduction_factor,
-								very_steep_reduction=very_steep_reduction_factor,
-								min_time_before_fail=min_time_before_fail)
+								very_steep_reduction=very_steep,
+								min_time_before_fail=min_time_before_fail,
+	                            max_time_before_fail=max_time_before_fail
+	                          )
 
 	return b
 

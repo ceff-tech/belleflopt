@@ -607,7 +607,7 @@ class RecessionBenefitBox(BenefitBox):
 	very_steep_reduction = None
 
 	def setup_recession_benefit(self, normal_rates, steep_rates, fail_rate_of_change, steep_reduction, very_steep_reduction,
-	                            min_time_before_fail):
+	                            min_time_before_fail, max_time_before_fail):
 		"""
 			:param normal_rates:  tuple of the min and max rates for full credit
 			:param steep_rates:  tuple of the min and max rates for partial credit - reduces benefit by multiplying by
@@ -635,6 +635,7 @@ class RecessionBenefitBox(BenefitBox):
 		self.steep_reduction = steep_reduction
 		self.very_steep_reduction = very_steep_reduction
 		self.min_time_before_fail = min_time_before_fail
+		self.max_time_before_fail = max_time_before_fail
 
 	def get_benefit_for_timeseries(self, timeseries, testing=False):
 		days = range(1, 366)  # index 0 == day 1 of water year, index 364 == day 365 of water year
@@ -654,26 +655,25 @@ class RecessionBenefitBox(BenefitBox):
 			# calculate the rate of drop - we add 1 for current day because of slicing we do in this loop, then "day" is the previous day
 			rate_of_drop = float(timeseries[day] - timeseries[day+1])/timeseries[day]  # numerator reversed so it can be positive and we don't need to use abs (and don't want to - a positive 0.04 rate is *not* same as negation 0.04 rate
 
-
 			if rate_of_drop > self.fail_rate_of_change:
-				if time_in_recession > self.min_time_before_fail:
+				if self.min_time_before_fail < time_in_recession < self.max_time_before_fail:
 					if not testing:
-						return [0,] * 365
+						return [0, ] * 365
 					else:
-						return original_base_benefit, [0,] * 365  # return no benefit anywhere - we dropped too fast
+						return original_base_benefit, [0,] * 365, time_in_recession  # return no benefit anywhere - we dropped too fast
 				else:  # if we're not yet really in the recession, then just reset the time in the recession to 0 and skip the rest of the loop
 					time_in_recession = 0  # this reset could create an incentive to do big drops every min_time_before_fail-1 days, but I think the other incentives will overpower that.
 					continue
 
-			elif self.normal_rates[0] < rate_of_drop < self.normal_rates[1]:  # if it's in this segment's normal range
+			elif rate_of_drop < self.very_steep_reduction:  # if it's in this segment's normal range
 				final_benefit[cur_day_idx] = benefit  # return the normal amount of benefit
-			elif self.steep_rates[0] < rate_of_drop < self.steep_rates[1]:  # if we're in the steep range, reduce benefit
+			elif rate_of_drop < self.steep_rates[1]:  # if we're in the steep range, reduce benefit
 				final_benefit[cur_day_idx] = benefit * self.steep_reduction
-			elif rate_of_drop > 0:  # if we're still_positive, but outside of both ranges of rate of change, but haven't crossed the fail rate of change threshold
-				final_benefit[cur_day_idx] = benefit * self.very_steep_reduction
-			else:  # if we have a negative rate of drop, that means flow went up, reset counter
-				time_in_recession = 0
-				continue
+			else:
+				final_benefit[cur_day_idx] = 0
+				if rate_of_drop < 0:  # if we have a negative rate of drop, that means flow went up, reset counter
+					time_in_recession = 0
+					continue
 
 			time_in_recession += 1  # add a day to our time in the recession - if we make it to this part of the loop, we're going down at a recession rate
 

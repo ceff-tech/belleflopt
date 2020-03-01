@@ -88,7 +88,7 @@ def run_optimize_new(algorithm=NSGAII, NFE=1000, popsize=25, starting_water_pric
 	if run_problem:
 		eflows_opt.run(NFE)
 
-		make_plots(eflows_opt, problem, NFE, algorithm, seed, popsize, experiment, show_plots)
+		make_plots(eflows_opt, problem, NFE, algorithm, seed, popsize, model_run_name, experiment, show_plots)
 
 		if use_comet:
 			#file_path = os.path.join(settings.BASE_DIR, "data", "results", "results_{}_seed{}_nfe{}_popsize{}.csv".format(algorithm.__name__,str(seed),str(NFE),str(popsize)))
@@ -101,11 +101,14 @@ def run_optimize_new(algorithm=NSGAII, NFE=1000, popsize=25, starting_water_pric
 	return {"problem": problem, "solution": eflows_opt}
 
 
-def make_plots(model_run, problem, NFE, algorithm, seed, popsize, experiment=None, show_plots=False,):
+def make_plots(model_run, problem, NFE, algorithm, seed, popsize, name, experiment=None, show_plots=False,):
+	output_folder = os.path.join(settings.BASE_DIR, "data", "results", name, str(NFE), algorithm.__name__, str(seed), str(popsize))
+	os.makedirs(output_folder, exist_ok=True)
+
 	_plot(model_run, "Pareto Front: {} NFE, PopSize: {}".format(NFE, popsize),
 	      experiment=experiment,
 	      show=show_plots,
-	      filename=os.path.join(settings.BASE_DIR, "data", "results",
+	      filename=os.path.join(output_folder,
 	                            "pareto_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__, str(seed), str(NFE),
 	                                                                          str(popsize)))
 	      )
@@ -115,7 +118,7 @@ def make_plots(model_run, problem, NFE, algorithm, seed, popsize, experiment=Non
 	                                                                                  str(seed)),
 	                  experiment=experiment,
 	                  show=show_plots,
-	                  filename=os.path.join(settings.BASE_DIR, "data", "results",
+	                  filename=os.path.join(output_folder,
 	                                        "convergence_obj1_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__,
 	                                                                                                str(seed), str(NFE),
 	                                                                                                str(popsize)))
@@ -126,12 +129,21 @@ def make_plots(model_run, problem, NFE, algorithm, seed, popsize, experiment=Non
 	                                                                            str(seed)),
 	                  experiment=experiment,
 	                  show=show_plots,
-	                  filename=os.path.join(settings.BASE_DIR, "data", "results",
+	                  filename=os.path.join(output_folder,
 	                                        "convergence_obj2_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__,
 	                                                                                                str(seed),
 	                                                                                                str(NFE),
 	                                                                                                str(popsize)))
 	                  )
+	segment_name = "seg_component_plot_{}_{}_seed{}_nfe{}_popsize{}".format(name, algorithm.__name__,
+	                                                                            str(seed),
+	                                                                            str(NFE),
+	                                                                            str(popsize))
+	for segment in problem.stream_network.stream_segments.values():
+
+		segment.plot_results_with_components(screen=show_plots, output_folder=output_folder, name_prefix=segment_name)
+
+
 
 
 def run_experimenter(NFE=50000,
@@ -194,7 +206,7 @@ def run_experimenter(NFE=50000,
 				eflows_opt = algorithm(problem, generator=optimize.InitialFlowsGenerator(), population_size=popsize, **algorithm_args)
 				eflows_opt.run(NFE)
 
-				make_plots(eflows_opt, problem, NFE, algorithm, seed, popsize, experiment=experiment, show_plots=False)
+				make_plots(eflows_opt, problem, NFE, algorithm, seed, popsize, model_run_name, experiment=experiment, show_plots=False)
 
 				results[algorithm.__name__][seed][popsize] = eflows_opt
 				with shelve.open(output_shelf) as shelf:  # save the results out to a file after each round
@@ -207,73 +219,6 @@ def run_experimenter(NFE=50000,
 
 				experiment.end()
 
-
-def run_optimize(algorithm=NSGAII, NFE=1000, popsize=25, seed=20181214, show_plots=False):
-	"""
-		Runs a single optimization run, defaulting to 1000 NFE using NSGAII. Won't output plots to screen
-		by default. Outputs tables and figures to the data/results folder.
-	:param algorithm: a platypus Algorithm object (not the instance, but the actual item imported from platypus)
-						defaults to NSGAII.
-	:param NFE: How many times should the objective function be run?
-	:param popsize: The size of hte population to use
-	:param seed: Random seed to start
-	:param show_plots: Whether plots should be output to the screen
-	:return: None
-	"""
-
-	experiment = comet.new_experiment()
-	experiment.log_parameters({"algorithm": algorithm, "NFE": NFE, "popsize": popsize, "seed": seed})
-
-	random.seed = seed
-
-	problem = optimize.HUCNetworkProblem()
-	eflows_opt = algorithm(problem, generator=optimize.InitialFlowsGenerator(), population_size=popsize)
-
-	#step = 20
-	#for i in range(0, 100, step):
-	#	log.info("NFE: {}".format(i))
-	#	self.eflows_opt.run(step)
-
-	#	feasible = sum([1 for solution in self.eflows_opt.result if solution.feasible is True])
-	#	infeasible = sum([1 for solution in self.eflows_opt.result if solution.feasible is False])
-	#	log.debug("{} feasible, {} infeasible".format(feasible, infeasible))
-
-	#	self._plot(i+step)
-	eflows_opt.run(NFE)
-	feasible = sum([1 for solution in eflows_opt.result if solution.feasible is True])
-	infeasible = sum([1 for solution in eflows_opt.result if solution.feasible is False])
-
-	experiment.log_parameter("feasible", feasible)
-	experiment.log_parameter("infeasible", infeasible)
-
-	log.debug("{} feasible, {} infeasible".format(feasible, infeasible))
-	_plot(eflows_opt, "Pareto Front: {} NFE, PopSize: {}".format(NFE, popsize),
-		  				experiment=experiment,
-						show=show_plots,
-						filename=os.path.join(settings.BASE_DIR, "data", "results", "pareto_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__, str(seed), str(NFE), str(popsize))))
-
-	_plot_convergence(problem.iterations, problem.objective_1,
-					  "Total Needs Satisfied v NFE. Alg: {}, PS: {}, Seed: {}".format(algorithm.__name__, str(popsize), str(seed)),
-					  	experiment=experiment,
-						show=show_plots,
-						filename=os.path.join(settings.BASE_DIR, "data", "results", "convergence_obj1_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__,str(seed),str(NFE),str(popsize))))
-
-	_plot_convergence(problem.iterations, problem.objective_2, "Min percent of needs satisfied by species v NFEAlg: {}, PS: {}, Seed: {}".format(algorithm.__name__, str(popsize), str(seed)),
-					  experiment=experiment,
-					  show=show_plots,
-					  filename=os.path.join(settings.BASE_DIR, "data", "results", "convergence_obj2_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__, str(seed),
-																					   str(NFE), str(popsize))))
-
-	for huc in problem.hucs:
-		huc.save()  # save the results out
-
-	file_path = os.path.join(settings.BASE_DIR, "data", "results", "results_{}_seed{}_nfe{}_popsize{}.csv".format(algorithm.__name__,str(seed),str(NFE),str(popsize)))
-	output_table(problem.hucs, output_path=file_path)
-
-	experiment.log_asset(file_path, "results.csv")
-	experiment.end()
-
-	return file_path
 
 
 def validate_flow_methods(model_run_name="upper_cosumnes_subset_2010"):

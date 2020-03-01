@@ -1,9 +1,10 @@
 import logging
 import random
 import collections
-import copy
+import os
 
 import numpy
+import pandas
 from platypus import Problem, Real
 from platypus.operators import Generator, Solution
 
@@ -176,7 +177,8 @@ class ModelStreamSegment(object):
 	def set_allocation(self, allocation):
 		self.eflows_proportion = allocation  # should be a numpy array with 365 elements
 
-	def plot_results_with_components(self, screen=True, result="eflows_water", skip_components=()):
+	def plot_results_with_components(self, screen=True, results=("raw_available", "eflows_water"),
+	                                 skip_components=(), output_folder=None, name_prefix=None):
 		"""
 			Plots a flow timeseries with red boxes for each component for the segment
 			layered on top. By default shows the eflows allocation, but by passing the name
@@ -198,16 +200,37 @@ class ModelStreamSegment(object):
 
 			try:
 				rect = plt.Rectangle((component.start_day_ramp, component.minimum_magnitude_ramp),
-			                         component.duration_ramp,
-			                         component.maximum_magnitude_ramp - component.minimum_magnitude_ramp,
-			                         linewidth=1, edgecolor='r', facecolor='none', fill=False)
+				                     component.duration_ramp,
+				                     component.maximum_magnitude_ramp - component.minimum_magnitude_ramp,
+				                     linewidth=1, edgecolor='r', facecolor='none', fill=False)
 			except TypeError:
 				continue
 
 			ax.add_patch(rect)
 
-		ax.plot(range(1, 366), getattr(self, result))
+		# plotting by making a data frame first to try to get it to show a legend
+		plot_data = {"Days": range(1, 366)}
+		for result in results:
+			plot_data[result] = getattr(self, result)
+
+		pd_data = pandas.DataFrame(plot_data, columns=plot_data.keys())
+
+		for result in results:
+			ax.plot("Days", result, data=plot_data, label=result)
+
 		ax.autoscale()
+
+		eflows_water = sum(getattr(self, "eflows_water"))
+		extracted = sum(getattr(self, "raw_available")) - eflows_water
+
+		plt.title("{} {} - EF = {:.4}, Ext = {:.4}".format(self.stream_segment.com_id, self.stream_segment.name, eflows_water, extracted))
+
+		ax.legend()
+
+		if output_folder is not None:
+			segment_name = "{}_{}_{}.png".format(name_prefix, self.stream_segment.com_id, self.stream_segment.name)
+			output_path = os.path.join(output_folder, segment_name)
+			plt.savefig(output_path)
 
 		if screen:
 			plt.show()

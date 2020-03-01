@@ -77,8 +77,8 @@ FALL_INITIATION_FREQUENCY = 1  # this only happens once in the season officially
 FALL_INITIATION_EVENT_STARTING_BENEFIT = 5  # normally benefit is "1" - so a benefit of 10 makes a winter flow much more beneficial, but it tails off quickly
 FALL_INITIATION_EVENT_DURATION_VALUE = "pct_50"
 
-SPRING_RECESSION_MAGNITUDE_TOP_METRIC = "SP_Mag"  # which modeled metric should we use for summer baseflow magnitude
-SPRING_RECESSION_MAGNITUDE_BOTTOM_METRIC = "DS_Mag_50"  # which modeled metric should we use for summer baseflow magnitude
+SPRING_RECESSION_MAGNITUDE_TOP_METRIC = "SP_Mag"  # which modeled metric should we use for magnitude
+SPRING_RECESSION_MAGNITUDE_BOTTOM_METRIC = "DS_Mag_50"  # which modeled metric should we use for magnitude
 SPRING_RECESSION_MAGNITUDE_VALUES = ("pct_10", "pct_25", "pct_75", "pct_90")  # which percentiles should form q1,q2, q3, and q4 of magnitude?
 SPRING_RECESSION_START_TIMING_METRIC = "SP_Tim"  # which metric contains start timing for this flow component?
 SPRING_RECESSION_START_TIMING_VALUES = ("pct_25", "pct_50")  # which fields on the start timing metric should be q1 and q2 for timing
@@ -86,11 +86,12 @@ SPRING_RECESSION_DURATION_METRIC = "SP_Dur"  # which metric will have the durati
 SPRING_RECESSION_DURATION_VALUES = (("pct_25", "pct_75"), ("pct_25", "pct_90"))  # Used to set q3 and q4 based on start timing values plus duration pulled from duration metric in fields specified here
 SPRING_RECESSION_RATE_OF_CHANGE_METRIC = "SP_ROC"  # which metric will have the duration value for summer?
 SPRING_RECESSION_RATE_REDUCTION_VALUE = 0.5
-SPRING_RECESSION_RATE_VERY_STEEP_REDUCTION_VALUE = 0.2
+SPRING_RECESSION_RATE_STEEP_REDUCTION_VALUE = 0.1  # above which value do we assess by percentiles
 SPRING_RECESSION_RATE_OF_CHANGE_FULL_VALUES = ("pct_25", "pct_75")  # between these values, the recession rate gets full benefit
 SPRING_RECESSION_RATE_OF_CHANGE_STEEP_VALUES = ("pct_10", "pct_90")  # between thsese values, the recession rate gets multiplied by SPRING_RECESSION_RATE_REDUCTION_VALUE
 SPRING_RECESSION_MAX_RATE = 0.3  # if the daily recession rate is above this value when we're in the recession period, we 0 the whole recession out
-SPRING_RECESSION_MIN_TIME_BEFORE_MAX_RATE_FAIL = 7  # how many *consecutive* days do we need to be dropping at less than MAX_RATE before going above MAX_RATE is a recession fail? Basically detects if we're in a recession by looking at the rate for this long
+SPRING_RECESSION_MIN_TIME_BEFORE_MAX_RATE_FAIL = 14  # how many *consecutive* days do we need to be dropping at less than MAX_RATE before going above MAX_RATE is a recession fail? Basically detects if we're in a recession by looking at the rate for this long
+SPRING_RECESSION_MAX_TIME_BEFORE_MAX_RATE_FAIL = 28
 
 # The names and folder of the FFM data to load
 LOAD_FFM_FOLDER = os.path.join(BASE_DIR, "data", "ffm_modeling", "Data", "NHD FFM predictions")
