@@ -189,10 +189,8 @@ def make_plots(model_run, problem, NFE, algorithm, seed, popsize, name, experime
 		segment.plot_results_with_components(screen=show_plots, output_folder=output_folder, name_prefix=segment_name)
 
 
-
-
 def run_experimenter(NFE=50000,
-                     popsizes=(50, 100),
+                     popsizes=(100, 50),
                      algorithms=(NSGAII, SPEA2, SMPSO, GDE3),
                      seeds=(19991201, 18000408, 31915071, 20200224),
                      output_shelf=None,
@@ -202,7 +200,7 @@ def run_experimenter(NFE=50000,
                      starting_water_price=800,
                      economic_water_proportion=0.8, ):
 
-	results = {}
+	# results = {}
 
 	for model_run_name in model_run_names:
 
@@ -219,16 +217,16 @@ def run_experimenter(NFE=50000,
 			else:
 				algorithm_args = {}
 
-			if algorithm.__name__ not in results:
-				results[algorithm.__name__] = {}
+			#if algorithm.__name__ not in results:
+				#results[algorithm.__name__] = {}
 			for seed in seeds:
-				if seed not in results[algorithm.__name__]:
-					results[algorithm.__name__][seed] = {}
+				#if seed not in results[algorithm.__name__]:
+					#results[algorithm.__name__][seed] = {}
 				random.seed = seed
 				for popsize in popsizes:
 					log.info("{}, {}, {}".format(algorithm.__name__, seed, popsize))
-					if popsize in results[algorithm.__name__][seed]:  # if the key already exists, it means we're resuming and this already ran
-						continue
+					#if popsize in results[algorithm.__name__][seed]:  # if the key already exists, it means we're resuming and this already ran
+					#	continue
 
 					experiment = comet.new_experiment()
 					experiment.log_parameters({"algorithm": algorithm,
@@ -246,7 +244,7 @@ def run_experimenter(NFE=50000,
 
 					make_plots(eflows_opt, problem, NFE, algorithm, seed, popsize, model_run_name, experiment=experiment, show_plots=False)
 
-					results[algorithm.__name__][seed][popsize] = eflows_opt
+					#results[algorithm.__name__][seed][popsize] = eflows_opt
 					#with shelve.open(output_shelf) as shelf:  # save the results out to a file after each round
 					#	shelf["results"] = results
 
