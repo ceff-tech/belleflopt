@@ -27,6 +27,8 @@ class Command(BaseCommand):
 	def handle(self, *args, **options):
 
 		kwargs = {}
+
+		# could probably shorten the rest of this (except the comet line) to a dict comprehension, but this is pretty readable
 		if options['nfe']:
 			kwargs["NFE"] = options['nfe'][0]
 
@@ -46,3 +48,4 @@ class Command(BaseCommand):
 			kwargs["checkpoint_interval"] = options['checkpoint_interval'][0]
 
 		support.run_optimize_new(**kwargs)
+
