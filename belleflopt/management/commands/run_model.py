@@ -21,27 +21,28 @@ class Command(BaseCommand):
 		parser.add_argument('--model_name', nargs='+', type=str, dest="model_name", default="anderson_creek_thesis",)
 		parser.add_argument('--pop_size', nargs='+', type=int, dest="pop_size", default="50",)
 		parser.add_argument('--use_comet', nargs='+', type=int, dest="use_comet", default=0,)
+		parser.add_argument('--min_proportion', nargs='+', type=float, dest="min_proportion", default=0,)
+		parser.add_argument('--checkpoint_interval', nargs='+', type=int, dest="checkpoint_interval", default=None,)
 
 	def handle(self, *args, **options):
 
+		kwargs = {}
 		if options['nfe']:
-			nfe = options['nfe'][0]
-		else:
-			nfe = 10000
+			kwargs["NFE"] = options['nfe'][0]
 
 		if options['model_name']:
-			model_name = options['model_name'][0]
-		else:
-			model_name = "anderson_creek_thesis"
+			kwargs["model_run_name"] = options['model_name'][0]
 
 		if options['pop_size']:
-			pop_size = options['pop_size'][0]
-		else:
-			pop_size = 50
+			kwargs["popsize"] = options['pop_size'][0]
 
 		if options['use_comet']:
-			use_comet = int(options['use_comet'][0]) == 1
-		else:
-			use_comet = False
+			kwargs["use_comet"] = int(options['use_comet'][0]) == 1
 
-		support.run_optimize_new(NFE=nfe, model_run_name=model_name, popsize=pop_size, use_comet=use_comet)
+		if options['min_proportion']:
+			kwargs["min_proportion"] = options['min_proportion'][0]
+
+		if options['checkpoint_interval']:
+			kwargs["checkpoint_interval"] = options['checkpoint_interval'][0]
+
+		support.run_optimize_new(**kwargs)
