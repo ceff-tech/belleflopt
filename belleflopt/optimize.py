@@ -328,12 +328,14 @@ class StreamNetworkProblem(Problem):
 				that flow value in each HUC is less than or equal to the sum of that HUC's initial flow
 				plus everything coming from upstream.
 	"""
-	def __init__(self, stream_network, starting_water_price=800, total_units_needed_factor=0.99, objectives=2, *args):
+	def __init__(self, stream_network, starting_water_price=800, total_units_needed_factor=0.99, objectives=2, min_proportion=0, *args):
 		"""
 
 		:param decision_variables: when this is set to None, it will use the number of HUCs as the number of decision
 			variables
 		:param objectives:  default is two (total needs met, and min by species)
+		:param min_proportion: What is the minimum proportion of flow that we can allocate to any single segment? Raising
+				this value (min 0, max 0.999999999) prevents the model from extracting all its water in one spot.
 		:param args:
 		"""
 
@@ -350,7 +352,7 @@ class StreamNetworkProblem(Problem):
 		super(StreamNetworkProblem, self).__init__(self.decision_variables, objectives, *args)  # pass any arguments through
 
 		self.directions[:] = Problem.MAXIMIZE  # we want to maximize all of our objectives
-		self.types[:] = Real(0, 1)  # we now construe this as a proportion instead of a raw value
+		self.types[:] = Real(min_proportion, 1)  # we now construe this as a proportion instead of a raw value
 
 		self.eflows_nfe = 0
 

@@ -8,7 +8,6 @@ import numpy
 import arrow
 from matplotlib import pyplot as plt
 from platypus import NSGAII, OMOPSO, EpsNSGAII, SMPSO, GDE3, SPEA2, nondominated
-import platypus
 
 from eflows_optimization import settings
 from belleflopt import models
@@ -46,7 +45,18 @@ def water_year(year, month):
 		return year
 
 
-def run_optimize_new(algorithm=NSGAII, NFE=1000, popsize=25, starting_water_price=800, economic_water_proportion = 0.99, seed=20200224, model_run_name="upper_cosumnes_subset_2010", use_comet=True, show_plots=True, run_problem=True):
+def run_optimize_new(algorithm=NSGAII,
+                     NFE=1000,
+                     popsize=25,
+                     starting_water_price=800,
+                     economic_water_proportion = 0.99,
+                     seed=20200224,
+                     model_run_name="upper_cosumnes_subset_2010",
+                     use_comet=True,
+                     show_plots=True,
+                     run_problem=True,
+                     min_proportion=0,
+                     checkpoint_interval=True):
 	"""
 		Runs a single optimization run, defaulting to 1000 NFE using NSGAII. Won't output plots to screen
 		by default. Outputs tables and figures to the data/results folder.
@@ -58,6 +68,12 @@ def run_optimize_new(algorithm=NSGAII, NFE=1000, popsize=25, starting_water_pric
 	:param show_plots: Whether plots should be output to the screen
 	:pararm run_problem: When True, runs it, when False, just sets it up and returns it. Lets us have a consistent problem
 						set up in many contexts
+	:param min_proportion: What is the minimum proportion of flow that we can allocate to any single segment? Raising
+			this value (min 0, max 0.999999999) prevents the model from extracting all its water in one spot.
+	:param checkpoint_interval: How many NFE should elapse before this writes out plots and shelf results. Then writes
+			those out every NFE interval until more than NFE. If True instead of a number, then defaults to int(NFE/10).
+			If NFE is not evenly divisible by checkpoint_interval, then runs to the largest multiple of checkpoint_interval
+			less than NFE.
 	:return: None
 	"""
 
@@ -69,7 +85,8 @@ def run_optimize_new(algorithm=NSGAII, NFE=1000, popsize=25, starting_water_pric
 	                           "seed": seed,
 	                           "starting_water_price":starting_water_price,
 	                           "economic_water_proportion": economic_water_proportion,
-		                       "model_name": model_run_name
+		                       "model_name": model_run_name,
+		                        "min_eflows_proportion": min_proportion,
 	                           })
 	else:
 		experiment = None
@@ -79,19 +96,32 @@ def run_optimize_new(algorithm=NSGAII, NFE=1000, popsize=25, starting_water_pric
 	model_run = models.ModelRun.objects.get(name=model_run_name)
 
 	stream_network = optimize.StreamNetwork(model_run.segments, model_run.water_year, model_run)
-	problem = optimize.StreamNetworkProblem(stream_network, starting_water_price=starting_water_price, total_units_needed_factor=economic_water_proportion)
+	problem = optimize.StreamNetworkProblem(stream_network,
+	                                        starting_water_price=starting_water_price,
+	                                        total_units_needed_factor=economic_water_proportion,
+	                                        min_proportion=min_proportion)
 
 	log.info("Looking for {} CFS of water to extract".format(problem.stream_network.economic_benefit_calculator.total_units_needed))
 
 	eflows_opt = algorithm(problem, generator=optimize.InitialFlowsGenerator(), population_size=popsize)
 
 	if run_problem:
-		eflows_opt.run(NFE)
+		elapsed_nfe = 0
+		if checkpoint_interval is True:
+			if NFE > 1000:
+				checkpoint_interval = int(NFE/10)
+			else:
+				checkpoint_interval = int(NFE/2)
+		if checkpoint_interval is False or checkpoint_interval is None:
+			checkpoint_interval = NFE
+
+		# TODO: This construction means the comet.ml metric logging is duplicated, but whatever right now.
+		for total_nfe in range(checkpoint_interval, NFE+1, checkpoint_interval):
+			eflows_opt.run(checkpoint_interval)
+
+			make_plots(eflows_opt, problem, total_nfe, algorithm, seed, popsize, model_run_name, experiment, show_plots)
 
 		log.info("Completed at {}".format(arrow.utcnow()))
-
-		make_plots(eflows_opt, problem, NFE, algorithm, seed, popsize, model_run_name, experiment, show_plots)
-
 		if use_comet:
 			#file_path = os.path.join(settings.BASE_DIR, "data", "results", "results_{}_seed{}_nfe{}_popsize{}.csv".format(algorithm.__name__,str(seed),str(NFE),str(popsize)))
 			#output_table(problem.hucs, output_path=file_path)
@@ -162,77 +192,70 @@ def make_plots(model_run, problem, NFE, algorithm, seed, popsize, name, experime
 
 
 def run_experimenter(NFE=50000,
-                     popsizes=(25, 50, 100),
+                     popsizes=(50, 100),
                      algorithms=(NSGAII, SPEA2, SMPSO, GDE3),
-                     seeds=(20200224, 19991201, 18000408, 31915071),
-                     output_shelf=os.path.join(settings.BASE_DIR, "experimenter.shelf"),
+                     seeds=(19991201, 18000408, 31915071, 20200224),
+                     output_shelf=None,
                      problem_from_shelf=False,
                      resume=False,
-                     model_run_name="upper_cosumnes_subset_2010",
+                     model_run_names=("upper_cosumnes_subset_2010", "upper_cosumnes_subset_2011"),
                      starting_water_price=800,
-                     economic_water_proportion=0.75, ):
+                     economic_water_proportion=0.8, ):
 
-	with shelve.open(output_shelf) as shelf:  # save the results out to a file
-		if problem_from_shelf:
-			problem = shelf['problem']
-		else:
-			problem = run_optimize_new(model_run_name=model_run_name,
-			                           starting_water_price=starting_water_price,
-			                           economic_water_proportion=economic_water_proportion,
-			                           use_comet=False,
-			                           run_problem=False)["problem"]
-			shelf['problem'] = problem
-			shelf.sync()
+	results = {}
 
-		if resume is True:
-			results = shelf['results']
-		else:
-			results = {}
+	for model_run_name in model_run_names:
 
-	for algorithm in algorithms:
-		if type(algorithm) == tuple:  # if the algorithm has arguments, then we need to split it out so we can send them in
-			algorithm_args = algorithm[1]
-			algorithm = algorithm[0]
-		else:
-			algorithm_args = {}
+		problem = run_optimize_new(model_run_name=model_run_name,
+		                           starting_water_price=starting_water_price,
+		                           economic_water_proportion=economic_water_proportion,
+		                           use_comet=False,
+		                           run_problem=False)["problem"]
 
-		if algorithm.__name__ not in results:
-			results[algorithm.__name__] = {}
-		for seed in seeds:
-			if seed not in results[algorithm.__name__]:
-				results[algorithm.__name__][seed] = {}
-			random.seed = seed
-			for popsize in popsizes:
-				log.info("{}, {}, {}".format(algorithm.__name__, seed, popsize))
-				if popsize in results[algorithm.__name__][seed]:  # if the key already exists, it means we're resuming and this already ran
-					continue
+		for algorithm in algorithms:
+			if type(algorithm) == tuple:  # if the algorithm has arguments, then we need to split it out so we can send them in
+				algorithm_args = algorithm[1]
+				algorithm = algorithm[0]
+			else:
+				algorithm_args = {}
 
-				experiment = comet.new_experiment()
-				experiment.log_parameters({"algorithm": algorithm,
-				                           "NFE": NFE,
-				                           "popsize": popsize,
-				                           "seed": seed,
-				                           "starting_water_price": starting_water_price,
-				                           "economic_water_proportion": economic_water_proportion,
-				                           "model_name": model_run_name
-				                           })
+			if algorithm.__name__ not in results:
+				results[algorithm.__name__] = {}
+			for seed in seeds:
+				if seed not in results[algorithm.__name__]:
+					results[algorithm.__name__][seed] = {}
+				random.seed = seed
+				for popsize in popsizes:
+					log.info("{}, {}, {}".format(algorithm.__name__, seed, popsize))
+					if popsize in results[algorithm.__name__][seed]:  # if the key already exists, it means we're resuming and this already ran
+						continue
 
-				problem.reset()
-				eflows_opt = algorithm(problem, generator=optimize.InitialFlowsGenerator(), population_size=popsize, **algorithm_args)
-				eflows_opt.run(NFE)
+					experiment = comet.new_experiment()
+					experiment.log_parameters({"algorithm": algorithm,
+					                           "NFE": NFE,
+					                           "popsize": popsize,
+					                           "seed": seed,
+					                           "starting_water_price": starting_water_price,
+					                           "economic_water_proportion": economic_water_proportion,
+					                           "model_name": model_run_name
+					                           })
 
-				make_plots(eflows_opt, problem, NFE, algorithm, seed, popsize, model_run_name, experiment=experiment, show_plots=False)
+					problem.reset()
+					eflows_opt = algorithm(problem, generator=optimize.InitialFlowsGenerator(), population_size=popsize, **algorithm_args)
+					eflows_opt.run(NFE)
 
-				results[algorithm.__name__][seed][popsize] = eflows_opt
-				with shelve.open(output_shelf) as shelf:  # save the results out to a file after each round
-					shelf["results"] = results
+					make_plots(eflows_opt, problem, NFE, algorithm, seed, popsize, model_run_name, experiment=experiment, show_plots=False)
 
-					# these will save some space in the results
-					shelf["results"][algorithm.__name__][seed][popsize].problem.stream_network = None
-					shelf["results"][algorithm.__name__][seed][popsize].problem.types = None
-					shelf.sync()
+					results[algorithm.__name__][seed][popsize] = eflows_opt
+					#with shelve.open(output_shelf) as shelf:  # save the results out to a file after each round
+					#	shelf["results"] = results
 
-				experiment.end()
+						# these will save some space in the results
+					#	shelf["results"][algorithm.__name__][seed][popsize].problem.stream_network = None
+					#	shelf["results"][algorithm.__name__][seed][popsize].problem.types = None
+					#	shelf.sync()
+
+					experiment.end()
 
 
 
