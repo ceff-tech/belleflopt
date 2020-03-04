@@ -273,12 +273,12 @@ def validate_flow_methods(model_run_name="upper_cosumnes_subset_2010", show_plot
 	plt.xlabel("Proportion of Available Flow")
 	plt.ylabel("Environmental Benefit")
 
-	plt.savefig(os.path.join(settings.BASE_DIR, "data", "results", "validation_plot_{}.png".format(model_run_name)))
+	plt.savefig(os.path.join(settings.BASE_DIR, "data", "results", "validation_plot_{}.png".format(model_run_name)), dpi=300)
 
 	if show_plot:
 		plt.show()
-	else:
-		plt.close()
+
+	plt.close()
 
 	return {"x": problem.iterations, "y": problem.objective_1}
 
@@ -324,8 +324,8 @@ def validation_plot_thesis(show_plot=True, results_2010=None, results_2011=None)
 
 	if show_plot:
 		plt.show()
-	else:
-		plt.close()
+
+	plt.close()
 
 	return results_2010, results_2011
 
@@ -350,7 +350,7 @@ def _plot(optimizer, title, experiment=None, filename=None, show=False):
 		experiment.log_figure(title)
 
 	if filename:
-		plt.savefig(fname=filename)
+		plt.savefig(fname=filename, dpi=300)
 	if show:
 		plt.show()
 
@@ -371,7 +371,7 @@ def _plot_convergence(i, objective, title, experiment=None, filename=None, show=
 		experiment.log_figure(title)
 
 	if filename:
-		plt.savefig(fname=filename)
+		plt.savefig(fname=filename, dpi=300)
 	if show:
 		plt.show()
 
@@ -449,7 +449,7 @@ def _segment_plot_helper(function, segment_id, component_id, screen, output_path
 
 	if output_path is not None:
 		plot = plot.get_figure()  # for newer seaborn, we have to get the figure from the subplot
-		plot.savefig(output_path)
+		plot.savefig(output_path, dpi=300)
 
 	plt.close()
 
