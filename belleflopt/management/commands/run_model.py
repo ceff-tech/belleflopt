@@ -20,7 +20,7 @@ class Command(BaseCommand):
 
 	def add_arguments(self, parser):
 		parser.add_argument('--nfe', nargs='+', type=int, dest="nfe", default=10000,)
-		parser.add_argument('--model_name', nargs='+', type=str, dest="model_name", default="anderson_creek_thesis",)
+		parser.add_argument('--model_name', nargs='+', type=str, dest="model_name", default="upper_consumnes_subset_2010",)
 		parser.add_argument('--pop_size', nargs='+', type=int, dest="pop_size", default="50",)
 		parser.add_argument('--use_comet', nargs='+', type=int, dest="use_comet", default=0,)
 		parser.add_argument('--min_proportion', nargs='+', type=float, dest="min_proportion", default=0,)
@@ -51,7 +51,7 @@ class Command(BaseCommand):
 			kwargs["checkpoint_interval"] = options['checkpoint_interval'][0]
 
 		if options['algorithm']:
-			kwargs["algorithm"] = getattr(platypus, options['algorithm'][0])
+			kwargs["algorithm"] = getattr(platypus, options['algorithm'])
 
 		support.run_optimize_new(**kwargs)
 
