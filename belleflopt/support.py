@@ -257,7 +257,7 @@ def run_experimenter(NFE=50000,
 
 
 
-def validate_flow_methods(model_run_name="upper_cosumnes_subset_2010"):
+def validate_flow_methods(model_run_name="upper_cosumnes_subset_2010", show_plot=True):
 	problem = run_optimize_new(run_problem=False, model_run_name=model_run_name)["problem"]
 
 	measurements = numpy.linspace(0, 1, 101)
@@ -268,11 +268,66 @@ def validate_flow_methods(model_run_name="upper_cosumnes_subset_2010"):
 		runner = NSGAII(problem, generator=initial_flows, population_size=1)  # shouldn't matter what algorithm we use - we only do 1 NFE
 		runner.run(1)  # run it for 1 NFE just to see what these initial flows do
 
-	_plot_convergence(problem.iterations, problem.objective_1,
-	                  "Environmental benefit w/percent of flows: {}".format(model_run_name),
-	                  experiment=None,
-	                  show=True,
-	                  filename=os.path.join(settings.BASE_DIR, "data", "results","validation_plot.png"))
+	plt.plot(problem.iterations, problem.objective_1)
+
+	plt.xlabel("Proportion of Available Flow")
+	plt.ylabel("Environmental Benefit")
+
+	plt.savefig(os.path.join(settings.BASE_DIR, "data", "results", "validation_plot_{}.png".format(model_run_name)))
+
+	if show_plot:
+		plt.show()
+	else:
+		plt.close()
+
+	return {"x": problem.iterations, "y": problem.objective_1}
+
+
+def validation_plot_thesis(show_plot=True, results_2010=None, results_2011=None):
+	"""
+		Hardcoded items because they're for my thesis, not meant for more general use.
+	:return:
+	"""
+	if results_2010 is None:
+		results_2010 = validate_flow_methods("upper_cosumnes_subset_2010", show_plot=False)
+	if results_2011 is None:
+		results_2011 = validate_flow_methods("upper_cosumnes_subset_2011", show_plot=False)
+
+	# Creates two subplots and unpacks the output array immediately
+
+	fig = plt.figure()
+	plt.margins(0)
+	full_plot = fig.add_subplot(1, 1, 1)  # The big subplot
+
+	full_plot.set_xlabel("Percent of Available Flow")
+	full_plot.set_ylabel("Environmental Benefit", labelpad=20)  # move it off the tick values
+
+	# Turn off axis lines and ticks of the big subplot
+	full_plot.spines['top'].set_color('none')
+	full_plot.spines['bottom'].set_color('none')
+	full_plot.spines['left'].set_color('none')
+	full_plot.spines['right'].set_color('none')
+	full_plot.tick_params(labelcolor='w', top=False, bottom=False, left=False, right=False)
+
+	left_plot = fig.add_subplot(1, 2, 1)  # The big subplot
+	left_plot.plot(results_2010["x"], results_2010["y"])
+	left_plot.set_title('2010')
+
+	right_plot = fig.add_subplot(1, 2, 2, sharey=left_plot)  # The big subplot
+	right_plot.plot(results_2011["x"], results_2011["y"])
+	right_plot.set_title('2011')
+
+	# remove the axis values on the left to make space
+	right_plot.tick_params(left=True, labelleft=False, )
+
+	plt.savefig(os.path.join(settings.BASE_DIR, "data", "results", "validation_plot_thesis.png"), dpi=300)
+
+	if show_plot:
+		plt.show()
+	else:
+		plt.close()
+
+	return results_2010, results_2011
 
 
 def _plot(optimizer, title, experiment=None, filename=None, show=False):
