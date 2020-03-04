@@ -8,6 +8,8 @@ from belleflopt import support  # this needs a Django shell - run python manage.
 
 import logging
 
+import platypus
+
 from django.core.management.base import BaseCommand, CommandError
 
 log = logging.getLogger("belleflopt.commands.run_models")
@@ -23,6 +25,7 @@ class Command(BaseCommand):
 		parser.add_argument('--use_comet', nargs='+', type=int, dest="use_comet", default=0,)
 		parser.add_argument('--min_proportion', nargs='+', type=float, dest="min_proportion", default=0,)
 		parser.add_argument('--checkpoint_interval', nargs='+', type=int, dest="checkpoint_interval", default=None,)
+		parser.add_argument('--algorithm', nargs='+', type=str, dest="algorithm", default="NSGAII",)
 
 	def handle(self, *args, **options):
 
@@ -46,6 +49,9 @@ class Command(BaseCommand):
 
 		if options['checkpoint_interval']:
 			kwargs["checkpoint_interval"] = options['checkpoint_interval'][0]
+
+		if options['algorithm']:
+			kwargs["algorithm"] = getattr(platypus, options['algorithm'][0])
 
 		support.run_optimize_new(**kwargs)
 
