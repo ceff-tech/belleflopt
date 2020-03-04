@@ -19,13 +19,14 @@ class Command(BaseCommand):
 	help = 'Runs model for thesis'
 
 	def add_arguments(self, parser):
-		parser.add_argument('--nfe', nargs='+', type=int, dest="nfe", default=10000,)
-		parser.add_argument('--model_name', nargs='+', type=str, dest="model_name", default="upper_consumnes_subset_2010",)
-		parser.add_argument('--pop_size', nargs='+', type=int, dest="pop_size", default="50",)
-		parser.add_argument('--use_comet', nargs='+', type=int, dest="use_comet", default=0,)
-		parser.add_argument('--min_proportion', nargs='+', type=float, dest="min_proportion", default=0,)
-		parser.add_argument('--checkpoint_interval', nargs='+', type=int, dest="checkpoint_interval", default=None,)
-		parser.add_argument('--algorithm', nargs='+', type=str, dest="algorithm", default="NSGAII",)
+		parser.add_argument('--nfe', nargs='+', type=int, dest="nfe")
+		parser.add_argument('--model_name', nargs='+', type=str, dest="model_name")
+		parser.add_argument('--pop_size', nargs='+', type=int, dest="pop_size")
+		parser.add_argument('--use_comet', nargs='+', type=int, dest="use_comet")
+		parser.add_argument('--min_proportion', nargs='+', type=float, dest="min_proportion")
+		parser.add_argument('--checkpoint_interval', nargs='+', type=int, dest="checkpoint_interval")
+		parser.add_argument('--algorithm', nargs='+', type=str, dest="algorithm")
+		parser.add_argument('--simplified', nargs='+', type=int, dest="simplified")
 
 	def handle(self, *args, **options):
 
@@ -52,6 +53,9 @@ class Command(BaseCommand):
 
 		if options['algorithm']:
 			kwargs["algorithm"] = getattr(platypus, options['algorithm'])
+
+		if options['simplified']:
+			kwargs["simplified"] = int(options['simplified'][0]) == 1
 
 		support.run_optimize_new(**kwargs)
 

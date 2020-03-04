@@ -235,10 +235,8 @@ class ModelStreamSegment(object):
 
 		if screen:
 			plt.show()
-		else:
-			plt.close()
 
-		return fig, ax
+		plt.close()
 
 
 class StreamNetwork(object):
@@ -282,15 +280,19 @@ class StreamNetwork(object):
 
 			segment.stream_segment.ready_run()  # attaches the benefit objects so that we can evaluate benefit
 
-	def set_segment_allocations(self, allocations):
+	def set_segment_allocations(self, allocations, simplified=False):
 		self.reset()
 
-		allocations = numpy.reshape(allocations, (-1, 365))
+		if not simplified:
+			allocations = numpy.reshape(allocations, (-1, 365))
 
-		allocation_index = 0
-		for segment in self.stream_segments.values():
-			segment.set_allocation(allocations[allocation_index])
-			allocation_index += 1
+			allocation_index = 0
+			for segment in self.stream_segments.values():
+				segment.set_allocation(allocations[allocation_index])
+				allocation_index += 1
+		else:
+			for segment in self.stream_segments.values():
+				segment.set_allocation(numpy.array(allocations))
 
 	def get_benefits(self):
 		environmental_benefits = [segment.eflows_benefit for segment in self.stream_segments.values()]
@@ -328,7 +330,7 @@ class StreamNetworkProblem(Problem):
 				that flow value in each HUC is less than or equal to the sum of that HUC's initial flow
 				plus everything coming from upstream.
 	"""
-	def __init__(self, stream_network, starting_water_price=800, total_units_needed_factor=0.99, objectives=2, min_proportion=0, *args):
+	def __init__(self, stream_network, starting_water_price=800, total_units_needed_factor=0.99, objectives=2, min_proportion=0, simplified=False, *args):
 		"""
 
 		:param decision_variables: when this is set to None, it will use the number of HUCs as the number of decision
@@ -342,7 +344,12 @@ class StreamNetworkProblem(Problem):
 		self.stream_network = stream_network
 		self.stream_network.economic_benefit_calculator = economic_components.EconomicBenefit(starting_water_price,
 		                                                                                      total_units_needed=self.get_needed_water(total_units_needed_factor))
-		self.decision_variables = len(stream_network.stream_segments) * 365  # we need a decision variable for every stream segment and day - we'll reshape them later
+		if simplified:
+			self.decision_variables = 365
+			self.simplified = True
+		else:
+			self.decision_variables = len(stream_network.stream_segments) * 365  # we need a decision variable for every stream segment and day - we'll reshape them later
+			self.simplified = False
 
 		self.iterations = []
 		self.objective_1 = []
@@ -387,7 +394,7 @@ class StreamNetworkProblem(Problem):
 		self.eflows_nfe += 1
 
 		# attach allocations to segments here - doesn't matter what order we do it in, so long as it's consistent
-		self.stream_network.set_segment_allocations(allocations=solution.variables)
+		self.stream_network.set_segment_allocations(allocations=solution.variables, simplified=self.simplified)
 
 		benefits = self.stream_network.get_benefits()
 

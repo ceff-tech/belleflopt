@@ -56,7 +56,8 @@ def run_optimize_new(algorithm=NSGAII,
                      show_plots=True,
                      run_problem=True,
                      min_proportion=0,
-                     checkpoint_interval=True):
+                     checkpoint_interval=True,
+                     simplified=False):
 	"""
 		Runs a single optimization run, defaulting to 1000 NFE using NSGAII. Won't output plots to screen
 		by default. Outputs tables and figures to the data/results folder.
@@ -99,7 +100,8 @@ def run_optimize_new(algorithm=NSGAII,
 	problem = optimize.StreamNetworkProblem(stream_network,
 	                                        starting_water_price=starting_water_price,
 	                                        total_units_needed_factor=economic_water_proportion,
-	                                        min_proportion=min_proportion)
+	                                        min_proportion=min_proportion,
+	                                        simplified=simplified)
 
 	log.info("Looking for {} CFS of water to extract".format(problem.stream_network.economic_benefit_calculator.total_units_needed))
 
