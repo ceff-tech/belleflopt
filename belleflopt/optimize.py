@@ -254,7 +254,7 @@ class ModelStreamSegment(object):
 		if output_folder is not None:
 			segment_name = "{}_{}_{}.png".format(name_prefix, self.stream_segment.com_id, self.stream_segment.name)
 			output_path = os.path.join(output_folder, segment_name)
-			plt.savefig(output_path)
+			plt.savefig(output_path, dpi=300)
 
 		if screen:
 			plt.show()

@@ -57,7 +57,7 @@ class Command(BaseCommand):
 
 		if options['simplified']:
 			kwargs["simplified"] = int(options['simplified'][0]) == 1
-			
+
 		if options['plot_all']:
 			kwargs["plot_all"] = int(options['plot_all'][0]) == 1
 
