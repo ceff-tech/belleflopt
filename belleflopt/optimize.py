@@ -2,6 +2,7 @@ import logging
 import random
 import collections
 import os
+from itertools import chain
 
 import numpy
 import pandas
@@ -178,8 +179,16 @@ class ModelStreamSegment(object):
 	def set_allocation(self, allocation):
 		self.eflows_proportion = allocation  # should be a numpy array with 365 elements
 
-	def plot_results_with_components(self, screen=True, results=("raw_available", "eflows_water"),
-	                                 skip_components=(), output_folder=None, name_prefix=None):
+	@property
+	def Available(self):  # Just an alias for ease of use in plotting
+		return self.raw_available
+
+	@property
+	def EFlow(self):  # just an alias for ease of use in plotting
+		return self.eflows_water
+
+	def plot_results_with_components(self, screen=True, results=("Available", "EFlow"),
+	                                 skip_components=(), output_folder=None, name_prefix=None, autoremove=True):
 		"""
 			Plots a flow timeseries with red boxes for each component for the segment
 			layered on top. By default shows the eflows allocation, but by passing the name
@@ -190,7 +199,17 @@ class ModelStreamSegment(object):
 		"""
 
 		components = self.stream_segment.segmentcomponent_set.all()
-		fig, ax = plt.subplots(1)
+		fig, self.ax = plt.subplots(1)
+
+		# plotting by making a data frame first to try to get it to show a legend
+		# just get the data first so we can get the max value for use when plotting the components.
+		# We plot the data down lower
+		plot_data = {}
+		for result in results:
+			plot_data[result] = getattr(self, result)
+
+		max_value = max(list(chain.from_iterable(plot_data.values())))
+		plot_data["Days"] = range(1, 366)  # add days in after the max value is calculated
 
 		# they can provide a FlowComponent queryset/iterable to skip, get the IDs
 		skip_components = [component.id for component in skip_components]
@@ -199,34 +218,38 @@ class ModelStreamSegment(object):
 			if component.component.id in skip_components:  # if the component ID matches one to skip, go to next
 				continue
 
+			# wraparound logic to plot dry season component correctly
+			if component.start_day_ramp + component.duration_ramp > 365:
+				box_width = 365 - component.start_day_ramp
+				extra_width = component.start_day_ramp + component.duration_ramp - 365
+			else:
+				box_width = component.duration_ramp
+				extra_width = 0
+
+			# if we want to automatically remove components we don't *ever* reach, then continue
+			if autoremove is True and component.minimum_magnitude_ramp > max_value:
+				continue
+
 			try:
-				rect = plt.Rectangle((component.start_day_ramp, component.minimum_magnitude_ramp),
-				                     component.duration_ramp,
-				                     component.maximum_magnitude_ramp - component.minimum_magnitude_ramp,
-				                     linewidth=1, edgecolor='r', facecolor='none', fill=False)
+				self.add_rectangle_to_plot(component=component, left=component.start_day_ramp, width=box_width)
+
+				if extra_width > 0:
+					self.add_rectangle_to_plot(component=component, left=0, width=extra_width)
 			except TypeError:
 				continue
 
-			ax.add_patch(rect)
-
-		# plotting by making a data frame first to try to get it to show a legend
-		plot_data = {"Days": range(1, 366)}
+		# plot any hydrographs
 		for result in results:
-			plot_data[result] = getattr(self, result)
+			self.ax.plot("Days", result, data=plot_data, label=result)
 
-		pd_data = pandas.DataFrame(plot_data, columns=plot_data.keys())
-
-		for result in results:
-			ax.plot("Days", result, data=plot_data, label=result)
-
-		ax.autoscale()
+		self.ax.autoscale()
 
 		eflows_water = sum(getattr(self, "eflows_water"))
 		extracted = sum(getattr(self, "raw_available")) - eflows_water
 
 		plt.title("{} {} - EF = {:.4}, Ext = {:.4}".format(self.stream_segment.com_id, self.stream_segment.name, eflows_water, extracted))
 
-		ax.legend()
+		self.ax.legend()
 
 		if output_folder is not None:
 			segment_name = "{}_{}_{}.png".format(name_prefix, self.stream_segment.com_id, self.stream_segment.name)
@@ -237,6 +260,13 @@ class ModelStreamSegment(object):
 			plt.show()
 
 		plt.close()
+
+	def add_rectangle_to_plot(self, component, left, width):
+		rect = plt.Rectangle((left, component.minimum_magnitude_ramp),
+		                     width,
+		                     component.maximum_magnitude_ramp - component.minimum_magnitude_ramp,
+		                     linewidth=1, edgecolor='r', facecolor='none', fill=False)
+		self.ax.add_patch(rect)
 
 
 class StreamNetwork(object):

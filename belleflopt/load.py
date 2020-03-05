@@ -557,7 +557,7 @@ def load_flows(database=os.path.join(settings.BASE_DIR, "data", "navarro_flows",
 	if filter_comids is not None:
 		query += "AND {} IN ('{}')".format(comid_field, "','".join(filter_comids))
 
-	print(query)
+	log.info(query)
 
 	flow_objects = []
 
@@ -618,7 +618,8 @@ def load_subset_flows(model_run_name="upper_cosumnes_subset_2010",
 		model_run = models.ModelRun.objects.get(name=model_run_name)
 	except models.ModelRun.DoesNotExist:
 		model_run = models.ModelRun(
-			name=model_run_name
+			name=model_run_name,
+			water_year=water_years[0]
 		)
 		model_run.save()
 

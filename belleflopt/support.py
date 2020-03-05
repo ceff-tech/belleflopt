@@ -57,7 +57,8 @@ def run_optimize_new(algorithm=NSGAII,
                      run_problem=True,
                      min_proportion=0,
                      checkpoint_interval=True,
-                     simplified=False):
+                     simplified=False,
+                     plot_all=False):
 	"""
 		Runs a single optimization run, defaulting to 1000 NFE using NSGAII. Won't output plots to screen
 		by default. Outputs tables and figures to the data/results folder.
@@ -75,6 +76,7 @@ def run_optimize_new(algorithm=NSGAII,
 			those out every NFE interval until more than NFE. If True instead of a number, then defaults to int(NFE/10).
 			If NFE is not evenly divisible by checkpoint_interval, then runs to the largest multiple of checkpoint_interval
 			less than NFE.
+	:param plot_all: Makes a hydrograph/component plot for every segment and population member in the final solution set.
 	:return: None
 	"""
 
@@ -121,7 +123,7 @@ def run_optimize_new(algorithm=NSGAII,
 		for total_nfe in range(checkpoint_interval, NFE+1, checkpoint_interval):
 			eflows_opt.run(checkpoint_interval)
 
-			make_plots(eflows_opt, problem, total_nfe, algorithm, seed, popsize, model_run_name, experiment, show_plots)
+			make_plots(eflows_opt, problem, total_nfe, algorithm, seed, popsize, model_run_name, experiment, show_plots, plot_all=plot_all, simplified=simplified)
 
 		log.info("Completed at {}".format(arrow.utcnow()))
 		if use_comet:
@@ -146,7 +148,16 @@ def write_variables_as_shelf(model_run, output_folder):
 		shelf.sync()
 
 
-def make_plots(model_run, problem, NFE, algorithm, seed, popsize, name, experiment=None, show_plots=False,):
+def plot_all_solutions(solution, problem, simplified, segment_name, output_folder, show_plots):
+
+	for i, solution in enumerate(nondominated(solution.result)):
+		problem.stream_network.set_segment_allocations(solution.variables, simplified=simplified)
+		for segment in problem.stream_network.stream_segments.values():
+			output_segment_name = "{}_sol_{}".format(segment_name, i)
+			segment.plot_results_with_components(screen=show_plots, output_folder=output_folder, name_prefix=output_segment_name)
+
+
+def make_plots(model_run, problem, NFE, algorithm, seed, popsize, name, experiment=None, show_plots=False, plot_all=False, simplified=False):
 	output_folder = os.path.join(settings.BASE_DIR, "data", "results", name, str(NFE), algorithm.__name__, str(seed), str(popsize))
 	os.makedirs(output_folder, exist_ok=True)
 
@@ -182,13 +193,22 @@ def make_plots(model_run, problem, NFE, algorithm, seed, popsize, name, experime
 	                                                                                                str(NFE),
 	                                                                                                str(popsize)))
 	                  )
-	segment_name = "seg_component_plot_{}_{}_seed{}_nfe{}_popsize{}".format(name, algorithm.__name__,
+	segment_name = "scplot_m{}_{}_s{}_nfe{}_ps{}".format(name, algorithm.__name__,
 	                                                                            str(seed),
 	                                                                            str(NFE),
 	                                                                            str(popsize))
-	for segment in problem.stream_network.stream_segments.values():
-
-		segment.plot_results_with_components(screen=show_plots, output_folder=output_folder, name_prefix=segment_name)
+	
+	if plot_all:
+		plot_all_solutions(solution=model_run,
+		                   problem=problem,
+		                   simplified=simplified,
+		                   segment_name=segment_name,
+		                   output_folder=output_folder,
+		                   show_plots=show_plots)
+	else:
+		# just plot the last one done - not necessarily the most optimal in *any* sense
+		for segment in problem.stream_network.stream_segments.values():
+			segment.plot_results_with_components(screen=show_plots, output_folder=output_folder, name_prefix=segment_name)
 
 
 def run_experimenter(NFE=50000,
