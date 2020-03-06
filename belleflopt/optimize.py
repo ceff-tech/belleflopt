@@ -403,8 +403,6 @@ class StreamNetworkProblem(Problem):
 		self.iterations = []
 		self.objective_1 = []
 		self.objective_2 = []
-		self.best_objective_1 = [0]
-		self.best_objective_2 = [0]
 		self.eflows_nfe = 0
 
 	def get_needed_water(self, proportion):
@@ -444,9 +442,6 @@ class StreamNetworkProblem(Problem):
 		self.iterations.append(self.eflows_nfe)
 		self.objective_1.append(benefits["environmental_benefit"])
 		self.objective_2.append(benefits["economic_benefit"])
-
-		if benefits["environmental_benefit"] > self.best_objective_1[:-1]:
-			self.best_objective_1.append(benefits["environmental_benefit"])
 
 
 class HUCNetworkProblem(Problem):
