@@ -141,22 +141,22 @@ def run_optimize_new(algorithm=NSGAII,
 	return {"problem": problem, "solution": eflows_opt}
 
 
-def max_seen(max_seen_value=0):
-	def above_max(value):  # make a closure so we have a counter variable that persists
-		nonlocal max_seen_value  # make it so we can write the closure variable
-		if value >= max_seen_value:  # if the value is greater than anything prior in the sequence
-			max_seen_value = value  # make it our new max_value
-			return True
-		else:
-			return False
-
-	return above_max
+def incremental_maximums(values, seed=0):
+	"""
+		Generator that keeps track of our max value we've seen so we can simplify convergence plots to only the
+		increasing values
+	:param values:
+	:param seed:
+	:return:
+	"""
+	for value in values:
+		if value > seed:
+			seed = value
+			yield value
 
 
 def get_best_items_for_convergence(objective_values):
-	is_above_max = max_seen()  # make a function that'll keep track of the max value in the list so far
-	best_values = [item for item in objective_values if is_above_max(item)]  # get the actual sequential max list
-	return best_values
+	return list(incremental_maximums(objective_values))  # get the actual sequential max list
 
 
 def write_variables_as_shelf(model_run, output_folder):
