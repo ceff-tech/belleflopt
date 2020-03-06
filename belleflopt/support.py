@@ -6,6 +6,7 @@ import shelve
 
 import numpy
 import arrow
+import matplotlib as mpl
 from matplotlib import pyplot as plt
 from platypus import NSGAII, OMOPSO, EpsNSGAII, SMPSO, GDE3, SPEA2, nondominated
 
@@ -17,6 +18,9 @@ from belleflopt import comet
 log = logging.getLogger("eflows.optimization.support")
 
 NO_DOWNSTREAM = ("OCEAN", "MEXICO", "CLOSED_BASIN")
+
+# See https://github.com/matplotlib/matplotlib/issues/5907 - solves an issue with plotting *lots* of points on a figure
+mpl.rcParams['agg.path.chunksize'] = 10000
 
 
 def day_of_water_year(year, month, day):
@@ -137,6 +141,24 @@ def run_optimize_new(algorithm=NSGAII,
 	return {"problem": problem, "solution": eflows_opt}
 
 
+def max_seen(max_seen_value=0):
+	def above_max(value):  # make a closure so we have a counter variable that persists
+		nonlocal max_seen_value  # make it so we can write the closure variable
+		if value >= max_seen_value:  # if the value is greater than anything prior in the sequence
+			max_seen_value = value  # make it our new max_value
+			return True
+		else:
+			return False
+
+	return above_max
+
+
+def get_best_items_for_convergence(objective_values):
+	is_above_max = max_seen()  # make a function that'll keep track of the max value in the list so far
+	best_values = [item for item in objective_values if is_above_max(item)]  # get the actual sequential max list
+	return best_values
+
+
 def write_variables_as_shelf(model_run, output_folder):
 	log.info("Writing out variables and objectives to shelf")
 	results = nondominated(model_run.result)
@@ -145,6 +167,7 @@ def write_variables_as_shelf(model_run, output_folder):
 	with shelve.open(os.path.join(output_folder, "variables.shelf")) as shelf:
 		shelf["variables"] = variables
 		shelf["objectives"] = objectives
+		shelf["result"] = model_run.result
 		shelf.sync()
 
 
@@ -155,6 +178,10 @@ def plot_all_solutions(solution, problem, simplified, segment_name, output_folde
 		for segment in problem.stream_network.stream_segments.values():
 			output_segment_name = "{}_sol_{}".format(segment_name, i)
 			segment.plot_results_with_components(screen=show_plots, output_folder=output_folder, name_prefix=output_segment_name)
+
+
+def replot_from_shelf():
+	pass
 
 
 def make_plots(model_run, problem, NFE, algorithm, seed, popsize, name, experiment=None, show_plots=False, plot_all=False, simplified=False):
@@ -171,28 +198,34 @@ def make_plots(model_run, problem, NFE, algorithm, seed, popsize, name, experime
 	                                                                          str(popsize)))
 	      )
 
-	_plot_convergence(problem.iterations, problem.objective_1,
-	                  "Environmental Benefit v NFE. Alg: {}, PS: {}, Seed: {}".format(algorithm.__name__, str(popsize),
-	                                                                                  str(seed)),
-	                  experiment=experiment,
-	                  show=show_plots,
-	                  filename=os.path.join(output_folder,
-	                                        "convergence_obj1_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__,
-	                                                                                                str(seed), str(NFE),
-	                                                                                                str(popsize)))
-	                  )
+	try:
+		_plot_convergence(problem.iterations, problem.objective_1,
+		                  "Environmental Benefit v NFE. Alg: {}, PS: {}, Seed: {}".format(algorithm.__name__, str(popsize),
+		                                                                                  str(seed)),
+		                  experiment=experiment,
+		                  show=show_plots,
+		                  filename=os.path.join(output_folder,
+		                                        "convergence_obj1_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__,
+		                                                                                                str(seed), str(NFE),
+		                                                                                                str(popsize)))
+		                  )
 
-	_plot_convergence(problem.iterations, problem.objective_2,
-	                  "Economic Benefit v NFE Alg: {}, PS: {}, Seed: {}".format(algorithm.__name__, str(popsize),
-	                                                                            str(seed)),
-	                  experiment=experiment,
-	                  show=show_plots,
-	                  filename=os.path.join(output_folder,
-	                                        "convergence_obj2_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__,
-	                                                                                                str(seed),
-	                                                                                                str(NFE),
-	                                                                                                str(popsize)))
-	                  )
+		_plot_convergence(problem.iterations, problem.objective_2,
+		                  "Economic Benefit v NFE Alg: {}, PS: {}, Seed: {}".format(algorithm.__name__, str(popsize),
+		                                                                            str(seed)),
+		                  experiment=experiment,
+		                  show=show_plots,
+		                  filename=os.path.join(output_folder,
+		                                        "convergence_obj2_{}_seed{}_nfe{}_popsize{}.png".format(algorithm.__name__,
+		                                                                                                str(seed),
+		                                                                                                str(NFE),
+		                                                                                                str(popsize)))
+		                  )
+	except OverflowError:
+		log.error("Couldn't outplot convergence plot - too many points. Continuing anyway, but you may wish to stop"
+		          "this run if it's not outputting convergence plots anymore!")
+
+
 	segment_name = "scplot_m{}_{}_s{}_nfe{}_ps{}".format(name, algorithm.__name__,
 	                                                                            str(seed),
 	                                                                            str(NFE),

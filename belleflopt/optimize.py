@@ -177,6 +177,7 @@ class ModelStreamSegment(object):
 		self._upstream_available = None
 
 	def set_allocation(self, allocation):
+		self.reset()
 		self.eflows_proportion = allocation  # should be a numpy array with 365 elements
 
 	@property
@@ -188,13 +189,19 @@ class ModelStreamSegment(object):
 		return self.eflows_water
 
 	def plot_results_with_components(self, screen=True, results=("Available", "EFlow"),
-	                                 skip_components=(), output_folder=None, name_prefix=None, autoremove=True):
+	                                 skip_components=(), output_folder=None, name_prefix=None, autoremove=True,
+	                                 include_benefit=True):
 		"""
 			Plots a flow timeseries with red boxes for each component for the segment
 			layered on top. By default shows the eflows allocation, but by passing the name
 			of the attribute as a string to "result", you can plot a different timeseries.
 		:param screen:
 		:param result:
+		:param autoremove: default True - when True, removes components whose lowest magnitude is higher than the
+				highest flow in any of the results being plotted. It keeps the plot from being rescaled for peak flows
+				when the segment doesn't have any peak flows.
+		:param include_benefit: default True - includes the environmental benefit in the filename so it can be sorted
+					on. Will require evaluating the solution for this segment, so can be slow depending on the model.
 		:return:
 		"""
 
@@ -252,7 +259,7 @@ class ModelStreamSegment(object):
 		self.ax.legend()
 
 		if output_folder is not None:
-			segment_name = "{}_{}_{}.png".format(name_prefix, self.stream_segment.com_id, self.stream_segment.name)
+			segment_name = "{}_{}_{}_{}.png".format(int(self.eflows_benefit), name_prefix, self.stream_segment.com_id, self.stream_segment.name)
 			output_path = os.path.join(output_folder, segment_name)
 			plt.savefig(output_path, dpi=300)
 
@@ -311,8 +318,7 @@ class StreamNetwork(object):
 			segment.stream_segment.ready_run()  # attaches the benefit objects so that we can evaluate benefit
 
 	def set_segment_allocations(self, allocations, simplified=False):
-		self.reset()
-
+		# reset happens in segment.set_allocation
 		if not simplified:
 			allocations = numpy.reshape(allocations, (-1, 365))
 
@@ -397,6 +403,8 @@ class StreamNetworkProblem(Problem):
 		self.iterations = []
 		self.objective_1 = []
 		self.objective_2 = []
+		self.best_objective_1 = [0]
+		self.best_objective_2 = [0]
 		self.eflows_nfe = 0
 
 	def get_needed_water(self, proportion):
@@ -436,6 +444,9 @@ class StreamNetworkProblem(Problem):
 		self.iterations.append(self.eflows_nfe)
 		self.objective_1.append(benefits["environmental_benefit"])
 		self.objective_2.append(benefits["economic_benefit"])
+
+		if benefits["environmental_benefit"] > self.best_objective_1[:-1]:
+			self.best_objective_1.append(benefits["environmental_benefit"])
 
 
 class HUCNetworkProblem(Problem):
