@@ -141,22 +141,24 @@ def run_optimize_new(algorithm=NSGAII,
 	return {"problem": problem, "solution": eflows_opt}
 
 
-def incremental_maximums(values, seed=0):
+def incremental_maximums(values, nfe, seed=1):
 	"""
 		Generator that keeps track of our max value we've seen so we can simplify convergence plots to only the
 		increasing values
 	:param values:
-	:param seed:
+	:param seed: Start at 1 so that we don't necessarily go from 0 onward
 	:return:
 	"""
-	for value in values:
+	for i, value in enumerate(values):
 		if value > seed:
 			seed = value
-			yield value
+			yield nfe[i], value
 
 
-def get_best_items_for_convergence(objective_values):
-	return list(incremental_maximums(objective_values))  # get the actual sequential max list
+def get_best_items_for_convergence(NFE, objective_values):
+	best_fe = list(incremental_maximums(objective_values, NFE))  # get the actual sequential max list as a list of tuples
+	return zip(*best_fe)  # zip with * args unzips the tuples
+
 
 
 def write_variables_as_shelf(model_run, output_folder):
@@ -220,6 +222,29 @@ def make_plots(model_run, problem, NFE, algorithm, seed, popsize, name, experime
 		                                                                                                str(seed),
 		                                                                                                str(NFE),
 		                                                                                                str(popsize)))
+		                  )
+
+		_plot_convergence(*get_best_items_for_convergence(problem.iterations, problem.objective_1),
+		                  title="Environmental Benefit v NFE. Alg: {}, PS: {}, Seed: {}".format(algorithm.__name__, str(popsize), str(seed)),
+		                  experiment=experiment,
+		                  show=show_plots,
+		                  filename=os.path.join(output_folder,
+		                                        "best_convergence_obj1_{}_seed{}_nfe{}_popsize{}.png".format(
+			                                        algorithm.__name__,
+			                                        str(seed), str(NFE),
+			                                        str(popsize)))
+		                  )
+
+		_plot_convergence(*get_best_items_for_convergence(problem.iterations, problem.objective_2),
+		                  title="Economic Benefit v NFE Alg: {}, PS: {}, Seed: {}".format(algorithm.__name__, str(popsize), str(seed)),
+		                  experiment=experiment,
+		                  show=show_plots,
+		                  filename=os.path.join(output_folder,
+		                                        "best_convergence_obj2_{}_seed{}_nfe{}_popsize{}.png".format(
+			                                        algorithm.__name__,
+			                                        str(seed),
+			                                        str(NFE),
+			                                        str(popsize)))
 		                  )
 	except OverflowError:
 		log.error("Couldn't outplot convergence plot - too many points. Continuing anyway, but you may wish to stop"
