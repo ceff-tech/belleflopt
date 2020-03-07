@@ -28,6 +28,7 @@ class Command(BaseCommand):
 		parser.add_argument('--algorithm', nargs='+', type=str, dest="algorithm")
 		parser.add_argument('--simplified', nargs='+', type=int, dest="simplified")
 		parser.add_argument('--plot_all', nargs='+', type=int, dest="plot_all")
+		parser.add_argument('--plot_best', nargs='+', type=int, dest="plot_best")
 		parser.add_argument('--seed', nargs='+', type=int, dest="seed")
 
 	def handle(self, *args, **options):
@@ -61,6 +62,9 @@ class Command(BaseCommand):
 
 		if options['plot_all']:
 			kwargs["plot_all"] = int(options['plot_all'][0]) == 1
+
+		if options['plot_best']:
+			kwargs["plot_best"] = int(options['plot_best'][0]) == 1
 
 		if options['seed']:
 			log.info("Seed: {}".format(int(options['seed'][0])))
