@@ -44,7 +44,7 @@ class InitialFlowsGenerator(Generator):
 	def generate(self, problem):
 		solution = Solution(problem)
 
-		initial_values = [(random.random()*0.2)+0.8, ] * problem.decision_variables  # start with almost everything for the environment
+		initial_values = [(random.random()*0.4)+0.6, ] * problem.decision_variables  # start with almost everything for the environment
 		solution.variables = initial_values
 
 		return solution
@@ -471,7 +471,7 @@ class StreamNetworkProblem(Problem):
 		self.objective_2.append(benefits["economic_benefit"])
 
 		if self.plot_output_folder:  # if we want to dump the best, then check the values and dump the network if it's better than what we've seen
-			if int(benefits["environmental_benefit"]) >= self.best_obj1:
+			if int(benefits["environmental_benefit"]) >= self.best_obj1: # these nested conditions *could* be simplified. If env benefit is the same, but economic is better, plot. If env is better on its own, plot
 				# we can dump for an environmental value that's tied for the best we've seen before *if* the economic value of it's better (AKA, it's nondominated)
 				if int(benefits["environmental_benefit"]) > self.best_obj1 or int(benefits["economic_benefit"]) > self._best_obj2_for_obj1:
 					self.stream_network.dump_plots(output_folder=os.path.join(self.plot_output_folder, "best", "env_{}_econ_{}".format(int(benefits["environmental_benefit"]), int(benefits["economic_benefit"]))),
