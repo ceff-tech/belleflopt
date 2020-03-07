@@ -478,7 +478,7 @@ class StreamNetworkProblem(Problem):
 												base_name="{}_".format(int(benefits["environmental_benefit"])),
 												nfe=self.eflows_nfe)
 					self.best_obj1 = int(benefits["environmental_benefit"])
-					self.best_obj2_for_obj1 = 0
+					self.best_obj2_for_obj1 = int(benefits["economic_benefit"])
 
 			elif benefits["economic_benefit"] > (self.best_obj2 * 1.005):  # don't dump every economic output - it changes frequently. It needs to improve a bit before we dump it.
 				self.stream_network.dump_plots(output_folder=os.path.join(self.plot_output_folder, "best", "econ_{}_env{}".format(int(benefits["economic_benefit"]), int(benefits["environmental_benefit"]))),
