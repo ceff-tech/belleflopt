@@ -413,6 +413,7 @@ class StreamNetworkProblem(Problem):
 		self.objective_2 = []
 
 		self.best_obj1 = 0
+		self._best_obj2_for_obj1 = 0
 		self.best_obj2 = 0
 
 		self.plot_output_folder = plot_output_folder
@@ -470,11 +471,13 @@ class StreamNetworkProblem(Problem):
 		self.objective_2.append(benefits["economic_benefit"])
 
 		if self.plot_output_folder:  # if we want to dump the best, then check the values and dump the network if it's better than what we've seen
-			if int(benefits["environmental_benefit"]) > self.best_obj1:
+			if int(benefits["environmental_benefit"]) >= self.best_obj1 and int(benefits["economic_benefit"]) > self._best_obj2_for_obj1:
+				# we can dump for an environmental value that's tied for the best we've seen before *if* the economic value of it's better (AKA, it's nondominated)
 				self.stream_network.dump_plots(output_folder=os.path.join(self.plot_output_folder, "best", "env_{}_econ_{}".format(int(benefits["environmental_benefit"]), int(benefits["economic_benefit"]))),
 												base_name="{}_".format(int(benefits["environmental_benefit"])),
 												nfe=self.eflows_nfe)
 				self.best_obj1 = int(benefits["environmental_benefit"])
+				self.best_obj2_for_obj1 = int(benefits["economic_benefit"])
 			elif benefits["economic_benefit"] > (self.best_obj2 * 1.005):  # don't dump every economic output - it changes frequently. It needs to improve a bit before we dump it.
 				self.stream_network.dump_plots(output_folder=os.path.join(self.plot_output_folder, "best", "econ_{}_env{}".format(int(benefits["economic_benefit"]), int(benefits["environmental_benefit"]))),
 				                               base_name="{}_".format(int(benefits["economic_benefit"])),
