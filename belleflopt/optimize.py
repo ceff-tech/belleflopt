@@ -255,6 +255,8 @@ class ModelStreamSegment(object):
 		extracted = sum(getattr(self, "raw_available")) - eflows_water
 
 		plt.title("{} {} - EF = {:.4}, Ext = {:.4}".format(self.stream_segment.com_id, self.stream_segment.name, eflows_water, extracted))
+		plt.xlabel("Day of Water Year")
+		plt.ylabel("Flow Magnitude Q (CFS)")
 
 		self.ax.legend()
 

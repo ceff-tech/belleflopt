@@ -350,7 +350,7 @@ def validate_flow_methods(model_run_name="upper_cosumnes_subset_2010", show_plot
 
 	plt.plot(problem.iterations, problem.objective_1)
 
-	plt.xlabel("Proportion of Available Flow")
+	plt.xlabel("Percent of Available Flow")
 	plt.ylabel("Environmental Benefit")
 
 	plt.savefig(os.path.join(settings.BASE_DIR, "data", "results", "validation_plot_{}.png".format(model_run_name)), dpi=300)
@@ -363,15 +363,15 @@ def validate_flow_methods(model_run_name="upper_cosumnes_subset_2010", show_plot
 	return {"x": problem.iterations, "y": problem.objective_1}
 
 
-def validation_plot_thesis(show_plot=True, results_2010=None, results_2011=None):
+def validation_plot_thesis(show_plot=True, results_2010=None, results_2011=None, model_run="cosumnes_michigan_bar"):
 	"""
 		Hardcoded items because they're for my thesis, not meant for more general use.
 	:return:
 	"""
 	if results_2010 is None:
-		results_2010 = validate_flow_methods("upper_cosumnes_subset_2010", show_plot=False)
+		results_2010 = validate_flow_methods("{}_2010".format(model_run), show_plot=False)
 	if results_2011 is None:
-		results_2011 = validate_flow_methods("upper_cosumnes_subset_2011", show_plot=False)
+		results_2011 = validate_flow_methods("{}_2011".format(model_run), show_plot=False)
 
 	# Creates two subplots and unpacks the output array immediately
 
