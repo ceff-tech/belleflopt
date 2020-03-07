@@ -62,7 +62,8 @@ def run_optimize_new(algorithm=NSGAII,
                      min_proportion=0,
                      checkpoint_interval=True,
                      simplified=False,
-                     plot_all=False):
+                     plot_all=False,
+                     plot_best=False):
 	"""
 		Runs a single optimization run, defaulting to 1000 NFE using NSGAII. Won't output plots to screen
 		by default. Outputs tables and figures to the data/results folder.
@@ -81,6 +82,7 @@ def run_optimize_new(algorithm=NSGAII,
 			If NFE is not evenly divisible by checkpoint_interval, then runs to the largest multiple of checkpoint_interval
 			less than NFE.
 	:param plot_all: Makes a hydrograph/component plot for every segment and population member in the final solution set.
+	:param plot_all: Makes a hydrograph/component plot when improved results are encountered for either objective.
 	:return: None
 	"""
 
@@ -102,12 +104,22 @@ def run_optimize_new(algorithm=NSGAII,
 
 	model_run = models.ModelRun.objects.get(name=model_run_name)
 
+	if plot_best:
+		output_folder = get_output_folder(NFE=NFE,
+		                                  algorithm=algorithm,
+		                                  model_run_name=model_run_name,
+		                                  popsize=popsize,
+		                                  seed=seed)
+	else:
+		output_folder = None
+
 	stream_network = optimize.StreamNetwork(model_run.segments, model_run.water_year, model_run)
 	problem = optimize.StreamNetworkProblem(stream_network,
 	                                        starting_water_price=starting_water_price,
 	                                        total_units_needed_factor=economic_water_proportion,
 	                                        min_proportion=min_proportion,
-	                                        simplified=simplified)
+	                                        simplified=simplified,
+	                                        plot_output_folder=output_folder)
 
 	log.info("Looking for {} CFS of water to extract".format(problem.stream_network.economic_benefit_calculator.total_units_needed))
 
@@ -187,7 +199,7 @@ def replot_from_shelf():
 
 
 def make_plots(model_run, problem, NFE, algorithm, seed, popsize, name, experiment=None, show_plots=False, plot_all=False, simplified=False):
-	output_folder = os.path.join(settings.BASE_DIR, "data", "results", name, str(NFE), algorithm.__name__, str(seed), str(popsize))
+	output_folder = get_output_folder(NFE, algorithm, name, popsize, seed)
 	os.makedirs(output_folder, exist_ok=True)
 
 	write_variables_as_shelf(model_run, output_folder)
@@ -267,6 +279,12 @@ def make_plots(model_run, problem, NFE, algorithm, seed, popsize, name, experime
 		# just plot the last one done - not necessarily the most optimal in *any* sense
 		for segment in problem.stream_network.stream_segments.values():
 			segment.plot_results_with_components(screen=show_plots, output_folder=output_folder, name_prefix=segment_name)
+
+
+def get_output_folder(NFE, algorithm, model_run_name, popsize, seed):
+	output_folder = os.path.join(settings.BASE_DIR, "data", "results", model_run_name, str(NFE), algorithm.__name__, str(seed),
+	                             str(popsize))
+	return output_folder
 
 
 def run_experimenter(NFE=50000,

@@ -353,6 +353,17 @@ class StreamNetwork(object):
 		for segment in self.stream_segments.values():
 			segment.reset()
 
+	def dump_plots(self, output_folder, base_name, nfe, show_plots=False):
+
+		log.info("Dumping plots to {}".format(output_folder))
+		os.makedirs(output_folder, exist_ok=True)
+
+		for segment in self.stream_segments.values():
+			segment.plot_results_with_components(screen=show_plots, output_folder=output_folder, name_prefix=base_name)
+
+		with open(os.path.join(output_folder, "nfe_{}.txt".format(nfe)), 'w') as output_file:
+			output_file.write(str(nfe))
+
 
 class StreamNetworkProblem(Problem):
 	"""
@@ -368,7 +379,15 @@ class StreamNetworkProblem(Problem):
 				that flow value in each HUC is less than or equal to the sum of that HUC's initial flow
 				plus everything coming from upstream.
 	"""
-	def __init__(self, stream_network, starting_water_price=800, total_units_needed_factor=0.99, objectives=2, min_proportion=0, simplified=False, *args):
+	def __init__(self,
+	             stream_network,
+	             starting_water_price=800,
+	             total_units_needed_factor=0.99,
+	             objectives=2,
+	             min_proportion=0,
+	             simplified=False,
+	             plot_output_folder=None,
+	             *args):
 		"""
 
 		:param decision_variables: when this is set to None, it will use the number of HUCs as the number of decision
@@ -392,6 +411,11 @@ class StreamNetworkProblem(Problem):
 		self.iterations = []
 		self.objective_1 = []
 		self.objective_2 = []
+
+		self.best_obj1 = 0
+		self.best_obj2 = 0
+
+		self.plot_output_folder = plot_output_folder
 
 		log.info("Number of Decision Variables: {}".format(self.decision_variables))
 		super(StreamNetworkProblem, self).__init__(self.decision_variables, objectives, *args)  # pass any arguments through
@@ -445,6 +469,17 @@ class StreamNetworkProblem(Problem):
 		self.objective_1.append(benefits["environmental_benefit"])
 		self.objective_2.append(benefits["economic_benefit"])
 
+		if self.plot_output_folder:  # if we want to dump the best, then check the values and dump the network if it's better than what we've seen
+			if int(benefits["environmental_benefit"]) > self.best_obj1:
+				self.stream_network.dump_plots(output_folder=os.path.join(self.plot_output_folder, "best", "env_{}_econ_{}".format(int(benefits["environmental_benefit"]), int(benefits["economic_benefit"]))),
+												base_name="{}_".format(int(benefits["environmental_benefit"])),
+												nfe=self.eflows_nfe)
+				self.best_obj1 = int(benefits["environmental_benefit"])
+			elif benefits["economic_benefit"] > (self.best_obj2 * 1.005):  # don't dump every economic output - it changes frequently. It needs to improve a bit before we dump it.
+				self.stream_network.dump_plots(output_folder=os.path.join(self.plot_output_folder, "best", "econ_{}_env{}".format(int(benefits["economic_benefit"]), int(benefits["environmental_benefit"]))),
+				                               base_name="{}_".format(int(benefits["economic_benefit"])),
+				                               nfe=self.eflows_nfe)
+				self.best_obj2 = benefits["economic_benefit"]
 
 class HUCNetworkProblem(Problem):
 	"""
